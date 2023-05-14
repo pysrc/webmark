@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+        <title></title>
+        <meta charset="utf-8">
+        <link href="static/css/bootstrap.min.css" rel="stylesheet">
+        <script src="static/js/jquery.min.js"></script>
+        <script src="static/js/bootstrap.min.js"></script>
+        <script src="static/js/webmark.common.js"></script>
+
+        <script src="static/js/marked.min.js"></script>
+        <link rel="stylesheet" href="static/css/default.min.css">
+        <script src="static/js/highlight.min.js"></script>
+</head>
+
+<body>
+        <div class="container-fluid">
+                <div class="row">
+                        <nav class="navbar navbar-default" role="navigation">
+                                <div class="container-fluid">
+                                        <div class="navbar-header">
+                                                <a class="navbar-brand" href="#" id="s-group"></a>
+                                        </div>
+                                        <div id="myexample">
+                                                <ul class="nav navbar-nav">
+                                                        <li><a href="#" data-toggle="modal"
+                                                                        data-target="#new-markdown-modal">新建文档</a></li>
+                                                        <div class="modal fade" id="new-markdown-modal" tabindex="-1"
+                                                                role="dialog" aria-hidden="true">
+                                                                <div class="modal-dialog">
+                                                                        <div class="modal-content">
+                                                                                <div class="modal-header">
+                                                                                        <button type="button"
+                                                                                                class="close"
+                                                                                                data-dismiss="modal"
+                                                                                                aria-hidden="true">
+                                                                                                &times;
+                                                                                        </button>
+                                                                                        <h4 class="modal-title"
+                                                                                                id="myModalLabel">
+                                                                                                新建文档
+                                                                                        </h4>
+                                                                                </div>
+                                                                                <div class="modal-body">
+                                                                                        <div id="new-group" role="form"
+                                                                                                action="/new-group"
+                                                                                                method="post">
+                                                                                                <div class="form-group">
+                                                                                                        <input type="text"
+                                                                                                                class="form-control"
+                                                                                                                id="nmdtitle"
+                                                                                                                placeholder="文档标题">
+                                                                                                </div>
+                                                                                        </div>
+                                                                                </div>
+                                                                                <div class="modal-footer">
+                                                                                        <button type="button"
+                                                                                                class="btn btn-default"
+                                                                                                data-dismiss="modal">关闭
+                                                                                        </button>
+                                                                                        <button type="button"
+                                                                                                class="btn btn-primary"
+                                                                                                id="new-markdown-submit">
+                                                                                                保存
+                                                                                        </button>
+                                                                                </div>
+                                                                        </div><!-- /.modal-content -->
+                                                                </div><!-- /.modal -->
+                                                        </div>
+                                                        <li><a href="#" id="del-group">删除分组</a></li>
+                                                </ul>
+                                        </div>
+                                        <ul class="nav navbar-nav navbar-right">
+                                                <li><a href="#" id="home"><span class="glyphicon glyphicon-home"></span></a></li>
+                                        </ul>
+                                </div>
+                        </nav>
+                </div>
+                <div class="row">
+                        <div class="col-sm-2">
+                                <ul id="s-md-list" class="list-group"></ul>
+                        </div>
+                        <div class="col-sm-10">
+                                <div id="right-show" style="display: none;">
+                                        <!-- 右边 -->
+                                        <div class="btn-group" style="margin-top: 10px;">
+                                                <button id="edit-btn" type="button" class="btn btn-default">编辑</button>
+                                                <button id="save-btn" type="button" class="btn btn-primary">保存</button>
+                                                <button id="delete-btn" type="button" class="btn btn-danger">删除</button>
+                                        </div>
+                                        <div id="edit-area" role="form" style="margin-top: 10px; display: none;">
+                                                <div class="form-group">
+                                                        <textarea id="markdown-input"
+                                                                placeholder="在这里可以写Markdown，支持文件、图片粘贴"
+                                                                class="form-control" rows="100"></textarea>
+                                                </div>
+                                        </div>
+                                        <div id="s-markdown" class="panel panel-primary" style="margin-top: 10px;">
+                                                <div class="panel-heading">
+                                                        <h3 id="s-title" class="panel-title"></h3>
+                                                </div>
+                                                <div class="panel-body">
+                                                        <div id="markdown-output"></div>
+                                                </div>
+                                        </div>
+                                </div>
+                        </div>
+                </div>
+        </div>
+</body>
+<script>
+        marked.setOptions({
+                renderer: new marked.Renderer(),
+                gfm: true,
+                breaks: true,
+                highlight: (code) => {
+                        return hljs.highlightAuto(code).value;
+                }
+        });
+</script>
+<script>
+        const groupname = getUrlParam('groupname');
+        const markdownInput = document.getElementById('markdown-input');
+        const markdownOutput = document.getElementById('markdown-output');
+        currentMarkdown = '';
+        function draw() {
+                const html = marked.parse(markdownInput.value);
+                markdownOutput.innerHTML = html;
+        };
+        $('title').html(groupname);
+        $('#s-group').html(groupname);
+        $.ajax({
+                url: "/markdown-list?group=" + groupname,
+                dataType: "json",
+                success: function (data) {
+                        var mds = data["markdowns"];
+                        if (mds) {
+                                for (let index = 0; index < mds.length; index++) {
+                                        const e = mds[index];
+                                        $("#s-md-list").append($(`<a href="#" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
+                                }
+                        }
+                }
+        });
+        function openMarkdown(mdname) {
+                currentMarkdown = mdname;
+                $("#s-title").html(currentMarkdown);
+                $("#right-show").show();
+                var ret = $.ajax({ url: `/markdown/${getUsername()}/${groupname}/${mdname}.md`, cache: false, async: false });
+                markdownInput.value = ret.responseText;
+                draw();
+        }
+        function markdownSave(mdname, content) {
+                var xhr = new XMLHttpRequest();
+                // 上传完成
+                xhr.addEventListener('load', (e) => {
+                        // 刷新页面
+                        location.reload();
+                });
+                // 发送请求
+                xhr.open('POST', `/new-markdown/${groupname}/${mdname}`);
+                xhr.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+                xhr.send(content);
+        }
+        $("#new-markdown-submit").click(() => {
+                // 新建文档保存
+                markdownSave($("#nmdtitle").val(), 'Hello');
+        });
+        $("#edit-btn").click(() => {
+                var t = $("#edit-btn").text();
+                if (t == '编辑') {
+                        $("#edit-area").show();
+                        $("#edit-btn").text('预览');
+                        $("#s-markdown").hide();
+                } else {
+                        $("#edit-area").hide();
+                        $("#edit-btn").text('编辑');
+                        $("#s-markdown").show();
+                        draw();
+                }
+        });
+        function savemd() {
+                var text = markdownInput.value;
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", `/new-markdown/${groupname}/${currentMarkdown}`);
+                xhr.setRequestHeader("Content-Type", "text/plain");
+                xhr.send(text);
+        }
+        $("#save-btn").click(() => {
+                savemd();
+        });
+        $("#delete-btn").click(() => {
+                if (window.confirm("确认删除吗？")) {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("DELETE", `/del-markdown/${groupname}/${currentMarkdown}`);
+                        xhr.addEventListener('load', (e) => {
+                                location.reload();
+                        });
+                        xhr.send();
+                }
+        });
+        $("#del-group").click(() => {
+                if (window.confirm("确认删除吗？")) {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("DELETE", `/del-group/${groupname}`);
+                        xhr.addEventListener('load', (e) => {
+                                location.href = "/user_main.html";
+                        });
+                        xhr.send();
+                }
+        });
+        $("#home").click(()=>{
+                location.href = "/user_main.html";
+        });
+        // ctrl+s保存
+        markdownInput.addEventListener('keydown', (event) => {
+                if (event.ctrlKey && event.key === 's') {
+                        event.preventDefault();
+                        savemd();
+                }
+        });
+
+        // 文件上传
+        function upload(files) {
+                // 创建FormData对象，用于将文件上传到服务器
+                var formData = new FormData();
+                var image_names = [];
+                var file_names = [];
+                // 将拖拽的文件添加到FormData对象中
+                for (var i = 0; i < files.length; i++) {
+                        var name = `${Date.now()}_${files[i].name}`;
+                        formData.append('file', files[i], name);
+                        if (files[i].type.indexOf('image') !== -1) {
+                                image_names.push(name);
+                        } else {
+                                file_names.push(name);
+                        }
+                }
+                // 创建XMLHttpRequest对象，用于发送请求
+                var xhr = new XMLHttpRequest();
+                // 监听上传进度
+                xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                                var percent = (e.loaded / e.total) * 100;
+                                console.log('上传进度：' + percent + '%');
+                        }
+                });
+                // 监听上传完成事件
+                xhr.addEventListener('load', (e) => {
+                        console.log('上传完成');
+                        for (var i = 0; i < image_names.length; i++) {
+                                var textToInsert = `![${image_names[i]}](markdown/${getUsername()}/${groupname}/${currentMarkdown}/${image_names[i]})`;
+                                // 获取光标位置
+                                const startPos = markdownInput.selectionStart;
+                                const endPos = markdownInput.selectionEnd;
+                                markdownInput.value = markdownInput.value.substring(0, startPos) + textToInsert + markdownInput.value.substring(endPos, markdownInput.value.length);
+                                // 更新光标位置
+                                markdownInput.selectionStart = startPos + textToInsert.length;
+                                markdownInput.selectionEnd = startPos + textToInsert.length;
+                        }
+                        for (var i = 0; i < file_names.length; i++) {
+                                var textToInsert = `[${file_names[i]}](markdown/${getUsername()}/${groupname}/${currentMarkdown}/${file_names[i]})`;
+                                // 获取光标位置
+                                const startPos = markdownInput.selectionStart;
+                                const endPos = markdownInput.selectionEnd;
+                                markdownInput.value = markdownInput.value.substring(0, startPos) + textToInsert + markdownInput.value.substring(endPos, markdownInput.value.length);
+                                // 更新光标位置
+                                markdownInput.selectionStart = startPos + textToInsert.length;
+                                markdownInput.selectionEnd = startPos + textToInsert.length;
+                        }
+                });
+                // 监听上传出错事件
+                xhr.addEventListener('error', (e) => {
+                        console.log('上传出错');
+                });
+                // 监听上传取消事件
+                xhr.addEventListener('abort', (e) => {
+                        console.log('上传取消');
+                });
+                // 发送请求
+                xhr.open('POST', `/upload/${groupname}/${currentMarkdown}`);
+                xhr.send(formData);
+        };
+        // 粘贴文件、截图等
+        markdownInput.addEventListener('paste', (event) => {
+                const clipboardData = event.clipboardData;
+                if (clipboardData.types.includes('Files')) {
+                        var files = clipboardData.files;
+                        upload(files);
+                }
+        });
+        markdownInput.addEventListener('input', () => {
+                // 输入时回调，这里先不渲染markdown，不然图片资源会反复获取
+        });
+        markdownInput.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+        });
+        markdownInput.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                var files = e.dataTransfer.files;
+                upload(files);
+        });
+</script>
+
+</html>
