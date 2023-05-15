@@ -346,6 +346,7 @@ func ZipDir(src_dir string, dst_writer io.Writer) {
 	// 遍历路径信息
 	filepath.Walk(src_dir, func(path string, info os.FileInfo, _ error) error {
 
+		path = strings.ReplaceAll(path, `\`, `/`)
 		// 如果是源路径，提前进行下一个遍历
 		if path == src_dir {
 			return nil
@@ -354,7 +355,7 @@ func ZipDir(src_dir string, dst_writer io.Writer) {
 		// 获取：文件头信息
 		header, _ := zip.FileInfoHeader(info)
 
-		header.Name = strings.TrimPrefix(path, src_dir+string(os.PathSeparator))
+		header.Name = strings.TrimPrefix(path, src_dir+"/")
 
 		// 判断：文件是不是文件夹
 		if info.IsDir() {
