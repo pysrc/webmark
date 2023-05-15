@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"crypto/rand"
 	"embed"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -335,6 +337,121 @@ func group_check(username string, group string) {
 	}
 }
 
+// 压缩文件夹
+func ZipDir(src_dir string, dst_writer io.Writer) {
+	// 打开：zip文件
+	archive := zip.NewWriter(dst_writer)
+	defer archive.Close()
+
+	// 遍历路径信息
+	filepath.Walk(src_dir, func(path string, info os.FileInfo, _ error) error {
+
+		// 如果是源路径，提前进行下一个遍历
+		if path == src_dir {
+			return nil
+		}
+
+		// 获取：文件头信息
+		header, _ := zip.FileInfoHeader(info)
+
+		header.Name = strings.TrimPrefix(path, src_dir+string(os.PathSeparator))
+
+		// 判断：文件是不是文件夹
+		if info.IsDir() {
+			header.Name += `/`
+		} else {
+			// 设置：zip的文件压缩算法
+			header.Method = zip.Deflate
+		}
+
+		// 创建：压缩包头部信息
+		writer, _ := archive.CreateHeader(header)
+		if !info.IsDir() {
+			file, _ := os.Open(path)
+			defer file.Close()
+			io.Copy(writer, file)
+		}
+		return nil
+	})
+}
+
+// 文档导出
+// /export
+// /export/groupname
+// /export/groupname/markdownname
+func export(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+	user_check(session.Name)
+	var username = session.Name
+	if r.URL.Path == "/export/" {
+		// 导出整个用户的文档
+		var fname = username + ".zip"
+		w.Header().Add("Content-Disposition", "attachment; filename="+fname)
+		w.Header().Add("Content-Type", "application/octet-stream")
+		ZipDir(DATA_DIR+"/"+username, w)
+	} else {
+		var restname = strings.TrimPrefix(r.URL.Path, "/export/")
+		var rts = strings.Split(restname, "/")
+		if len(rts) == 1 {
+			// 导出某个组的文档
+			var fname = rts[0] + ".zip"
+			w.Header().Add("Content-Disposition", "attachment; filename="+fname)
+			w.Header().Add("Content-Type", "application/octet-stream")
+			ZipDir(DATA_DIR+"/"+username+"/"+rts[0], w)
+		} else if len(rts) == 2 {
+			var fname = rts[1] + ".zip"
+			var mdinfo = DATA_DIR + "/" + username + "/" + rts[0] + "/" + rts[1]
+			w.Header().Add("Content-Disposition", "attachment; filename="+fname)
+			w.Header().Add("Content-Type", "application/octet-stream")
+			archive := zip.NewWriter(w)
+			defer archive.Close()
+			finfo, err := os.Stat(mdinfo + ".md")
+			if os.IsNotExist(err) {
+				return
+			}
+			header, _ := zip.FileInfoHeader(finfo)
+			header.Name = rts[1] + ".md"
+			header.Method = zip.Deflate
+			writer, _ := archive.CreateHeader(header)
+			file, _ := os.Open(mdinfo + ".md")
+			defer file.Close()
+			io.Copy(writer, file)
+			// 判断是否有附件信息
+			dirinfo, err := os.Stat(mdinfo)
+			if os.IsNotExist(err) {
+				return
+			}
+			header, _ = zip.FileInfoHeader(dirinfo)
+			header.Name = rts[1]
+			archive.CreateHeader(header)
+			// 遍历文件夹
+			f, err := os.Open(mdinfo)
+			if err != nil {
+				fmt.Println("打开目录时出错：", err)
+				return
+			}
+			defer f.Close()
+			files, err := f.Readdir(-1)
+			if err != nil {
+				fmt.Println("读取目录时出错：", err)
+				return
+			}
+			for _, fi := range files {
+				header, _ := zip.FileInfoHeader(fi)
+				header.Name = rts[1] + "/" + fi.Name()
+				header.Method = zip.Deflate
+				writer, _ := archive.CreateHeader(header)
+				file, _ := os.Open(mdinfo + "/" + fi.Name())
+				io.Copy(writer, file)
+				file.Close()
+			}
+		}
+	}
+}
+
 /*
 文件上传
 */
@@ -568,6 +685,7 @@ func main() {
 	http.HandleFunc("/del-group/", del_group)
 	http.HandleFunc("/markdown-list", markdown_list)
 	http.HandleFunc("/user-password-update", user_password_update)
+	http.HandleFunc("/export/", export)
 	server := http.Server{Addr: bind}
 	server.ListenAndServe()
 }

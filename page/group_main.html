@@ -77,6 +77,9 @@
                                                                         </div><!-- /.modal-content -->
                                                                 </div><!-- /.modal -->
                                                         </div>
+                                                        <li><a href="#" id="export-group"><span
+                                                                                class="glyphicon glyphicon-save">
+                                                                                导出分组</span></a></li>
                                                         <li><a href="#" id="del-group"><span
                                                                                 class="glyphicon glyphicon-trash">
                                                                                 删除分组</span></a></li>
@@ -100,6 +103,8 @@
                                         <div class="btn-group" style="margin-top: 10px;">
                                                 <button id="edit-btn" type="button" class="btn btn-default">编辑</button>
                                                 <button id="save-btn" type="button" class="btn btn-primary">保存</button>
+                                                <button id="export-md-btn" type="button"
+                                                        class="btn btn-default">导出</button>
                                                 <button id="delete-btn" type="button" class="btn btn-danger">删除</button>
                                         </div>
                                         <div id="edit-area" role="form" style="margin-top: 10px; display: none;">
@@ -126,10 +131,10 @@
         const groupname = getUrlParam('groupname');
         var currentMarkdown = '';
         const renderer = new marked.Renderer();
-        renderer.image = function(href, title, text) {
+        renderer.image = function (href, title, text) {
                 return `<img src="markdown/${getUsername()}/${groupname}/${href}" alt="${text}">`;
         };
-        renderer.link = function(href, title, text) {
+        renderer.link = function (href, title, text) {
                 return `<a href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
         }
         marked.setOptions({
@@ -144,8 +149,8 @@
 <script>
         const markdownInput = document.getElementById('markdown-input');
         const markdownOutput = document.getElementById('markdown-output');
-        const initmd = 
-`## 操作介绍
+        const initmd =
+                `## 操作介绍
 + Ctrl+C保存
 + 图片/文件支持复制粘贴、拖拽`
         function draw() {
@@ -218,7 +223,7 @@
                 // 新建文档保存
                 markdownSave($("#nmdtitle").val(), initmd);
         });
-        $("#nmdtitle").keydown((e)=>{
+        $("#nmdtitle").keydown((e) => {
                 if (event.keyCode == 13) {
                         markdownSave($("#nmdtitle").val(), initmd);
                 }
@@ -235,6 +240,12 @@
                         $("#s-markdown").show();
                         draw();
                 }
+        });
+        $("#export-group").click(() => {
+                window.open(`/export/${groupname}`);
+        });
+        $("#export-md-btn").click(() => {
+                window.open(`/export/${groupname}/${currentMarkdown}`);
         });
         function savemd() {
                 var text = markdownInput.value;

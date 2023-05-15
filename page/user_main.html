@@ -35,7 +35,9 @@
                         <button id="search" class="btn btn-default">搜索</button>
                     </div>
                     <ul class="nav navbar-nav navbar-right">
-                        <li><a href="#" data-toggle="modal" data-target="#user-modal"><span class="glyphicon glyphicon-cog"></span> 设置</a></li>
+                        <li><a href="#" id="export"><span class="glyphicon glyphicon-save"></span> 导出</a></li>
+                        <li><a href="#" data-toggle="modal" data-target="#user-modal"><span
+                                    class="glyphicon glyphicon-cog"></span> 设置</a></li>
                         <!-- 模态框（Modal） -->
                         <div class="modal fade" id="user-modal" tabindex="-1" role="dialog" aria-hidden="true">
                             <div class="modal-dialog">
@@ -127,7 +129,7 @@
     var groups = [];
     function show_groups() {
         var keyword = $("#keyword").val();
-        if(keyword == null) {
+        if (keyword == null) {
             keyword = ''
         }
         keyword = keyword.toLowerCase();
@@ -140,7 +142,7 @@
         if (groups) {
             for (let index = 0; index < groups.length; index++) {
                 const e = groups[index];
-                if(e.toLowerCase().indexOf(keyword) != -1) {
+                if (e.toLowerCase().indexOf(keyword) != -1) {
                     $("#s-new").after($(`<a href="#" data-gp="group" class="list-group-item" onclick="openGroup('${e}')">${e}</a>`));
                 }
             }
@@ -154,15 +156,18 @@
             show_groups();
         }
     });
-    $("#search").click(()=>{
+    $("#search").click(() => {
         // 搜索
         show_groups();
     });
-    $("#keyword").keydown((e)=>{
-        if(event.keyCode==13){
+    $("#keyword").keydown((e) => {
+        if (event.keyCode == 13) {
             // 回车查询
             show_groups();
         }
+    });
+    $("#export").click(() => {
+        window.open(`/export/`);
     });
     $("#logout").click(() => {
         location.href = "/logout";
@@ -171,19 +176,19 @@
         const sumdom = document.getElementById("new-group");
         sumdom.submit();
     });
-    $("#user-password-update-submit").click(()=>{
+    $("#user-password-update-submit").click(() => {
         var password1 = $("#password1").val();
         var password2 = $("#password2").val();
         var password = $("#password").val();
-        if(password1 !== password2) {
+        if (password1 !== password2) {
             alert("两次密码不一致，请检查！")
             return;
         }
         var xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
+        xhr.onreadystatechange = function () {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 var responseText = xhr.responseText;
-                if(responseText == "YES"){
+                if (responseText == "YES") {
                     $("#password1").val('');
                     $("#password2").val('');
                     $("#password").val('');
