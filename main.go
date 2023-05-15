@@ -15,10 +15,13 @@ import (
 )
 
 // 数据目录
-var DATA = "markdown"
+var DATA_DIR = "markdown"
 
 // 用户信息目录
-var USERS = "users"
+var USERS_DIR = "users"
+
+// 会话持久化保存目录
+var SESSIONS_DIR = "sessions"
 
 type UserInfo struct {
 	Name      string                `json:"name"`       // 用户名
@@ -35,7 +38,7 @@ type GroupInfo struct {
 type UserSession struct {
 	SessionId string
 	Name      string
-	LoginDate int64
+	Expires   int64 // session过期时间
 }
 
 var user_map = make(map[string]*UserInfo)
@@ -79,14 +82,17 @@ func login(w http.ResponseWriter, r *http.Request) {
 			if usr.Password == r.PostFormValue("password") {
 				// 认证通过
 				var session_id = Uuid()
+				// 会话过期时间
+				var expires = time.Now().Add(30 * 24 * time.Hour)
 				session_map[session_id] = &UserSession{
 					SessionId: session_id,
 					Name:      username,
-					LoginDate: time.Now().Unix(),
+					Expires:   expires.Unix(),
 				}
-				cookie_session_id := http.Cookie{Name: "session_id", Value: session_id, Expires: time.Now().Add(30 * 24 * time.Hour)}
+				session_save(session_id)
+				cookie_session_id := http.Cookie{Name: "session_id", Value: session_id, Expires: expires}
 				http.SetCookie(w, &cookie_session_id)
-				cookie_username := http.Cookie{Name: "username", Value: username, Expires: time.Now().Add(30 * 24 * time.Hour)}
+				cookie_username := http.Cookie{Name: "username", Value: username, Expires: expires}
 				http.SetCookie(w, &cookie_username)
 				http.Redirect(w, r, "user_main.html", http.StatusSeeOther)
 			} else {
@@ -107,6 +113,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	delete(session_map, session.SessionId)
+	os.Remove(SESSIONS_DIR + "/" + session.SessionId + ".json")
 	AuthError(w, r)
 }
 
@@ -185,7 +192,7 @@ func new_markdown(w http.ResponseWriter, r *http.Request) {
 	var groupname = parts[0]
 	var markdownname = parts[1]
 	group_check(session.Name, groupname)
-	var fname = DATA + "/" + session.Name + "/" + groupname + "/" + markdownname + ".md"
+	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname + ".md"
 	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		fmt.Println(err)
@@ -218,7 +225,7 @@ func del_markdown(w http.ResponseWriter, r *http.Request) {
 	parts := GetPathList(r.URL.Path, "/del-markdown/")
 	var groupname = parts[0]
 	var markdownname = parts[1]
-	var fname = DATA + "/" + session.Name + "/" + groupname + "/" + markdownname
+	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname
 	var mds = user_map[session.Name].Group[groupname].Markdowns
 	for i := 0; i < len(mds); i++ {
 		if mds[i] == markdownname {
@@ -241,7 +248,7 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 	}
 	parts := GetPathList(r.URL.Path, "/del-group/")
 	var groupname = parts[0]
-	var fname = DATA + "/" + session.Name + "/" + groupname
+	var fname = DATA_DIR + "/" + session.Name + "/" + groupname
 	os.RemoveAll(fname)
 	delete(user_map[session.Name].Group, groupname)
 	var gs = user_map[session.Name].GroupSort
@@ -257,7 +264,7 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 
 // 用户检测，不存在就创建目录
 func user_check(name string) {
-	var user_dir = DATA + "/" + name
+	var user_dir = DATA_DIR + "/" + name
 	if _, err := os.Stat(user_dir); os.IsNotExist(err) {
 		err := os.MkdirAll(user_dir, 0755)
 		if err != nil {
@@ -269,7 +276,7 @@ func user_check(name string) {
 // 保存缓存
 func cache_save(username string) {
 	byte, _ := json.Marshal(user_map[username])
-	file, err := os.OpenFile(USERS+"/"+username+".json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(USERS_DIR+"/"+username+".json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -278,10 +285,35 @@ func cache_save(username string) {
 	file.Write(byte)
 }
 
+// 会话保存
+func session_save(session_id string) {
+	byte, _ := json.Marshal(session_map[session_id])
+	file, err := os.OpenFile(SESSIONS_DIR+"/"+session_id+".json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+	file.Write(byte)
+}
+
+// 会话加载
+func session_load(session_file_name string) {
+	content, err := os.ReadFile(SESSIONS_DIR + "/" + session_file_name)
+	if err != nil {
+		panic(err)
+	}
+	var session_info UserSession
+	if nil != json.Unmarshal(content, &session_info) {
+		panic("json parse error " + session_file_name)
+	}
+	session_map[strings.Split(session_file_name, ".")[0]] = &session_info
+}
+
 // 分组检测
 func group_check(username string, group string) {
 	user_check(username)
-	var user_dir = DATA + "/" + username + "/" + group
+	var user_dir = DATA_DIR + "/" + username + "/" + group
 	if _, err := os.Stat(user_dir); os.IsNotExist(err) {
 		err := os.MkdirAll(user_dir, 0755)
 		if err != nil {
@@ -314,7 +346,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	var groupname = parts[0]
 	var markdownname = parts[1]
 
-	var work_dir = DATA + "/" + session.Name + "/" + groupname + "/" + markdownname
+	var work_dir = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname
 	// 文件夹不存在就创建
 	if _, err := os.Stat(work_dir); os.IsNotExist(err) {
 		err := os.MkdirAll(work_dir, 0755)
@@ -397,7 +429,7 @@ func auth_markdown(next http.Handler) http.Handler {
 
 // 从用户配置文件刷新缓存
 func cache_load(user_file_name string) {
-	content, err := os.ReadFile(USERS + "/" + user_file_name)
+	content, err := os.ReadFile(USERS_DIR + "/" + user_file_name)
 	if err != nil {
 		panic(err)
 	}
@@ -408,15 +440,15 @@ func cache_load(user_file_name string) {
 	user_map[strings.Split(user_file_name, ".")[0]] = &user_info
 }
 
-func init_user() {
+func init_work() {
 	// 判断用户目录是否存在，不存在就创建默认的
-	if _, err := os.Stat(USERS); os.IsNotExist(err) {
-		err := os.MkdirAll(USERS, 0755)
+	if _, err := os.Stat(USERS_DIR); os.IsNotExist(err) {
+		err := os.MkdirAll(USERS_DIR, 0755)
 		if err != nil {
 			return
 		}
 	}
-	f, err := os.Open(USERS)
+	f, err := os.Open(USERS_DIR)
 	if err != nil {
 		fmt.Println("打开目录时出错：", err)
 		return
@@ -448,6 +480,55 @@ func init_user() {
 			cache_load(file.Name())
 		}
 	}
+	// 会话目录创建
+	if _, err := os.Stat(SESSIONS_DIR); os.IsNotExist(err) {
+		err := os.MkdirAll(SESSIONS_DIR, 0755)
+		if err != nil {
+			return
+		}
+	}
+	// 加载会话
+	fsd, err := os.Open(SESSIONS_DIR)
+	if err != nil {
+		fmt.Println("打开目录时出错：", err)
+		return
+	}
+	defer fsd.Close()
+	sfiles, err := fsd.Readdir(-1)
+	if err != nil {
+		fmt.Println("读取目录时出错：", err)
+		return
+	}
+	var usesfiles []fs.FileInfo
+	for _, file := range sfiles {
+		if strings.HasSuffix(file.Name(), ".json") {
+			usesfiles = append(usesfiles, file)
+		}
+	}
+	if len(usesfiles) != 0 {
+		// 加载会话
+		for _, fi := range usesfiles {
+			session_load(fi.Name())
+		}
+	}
+}
+
+// 定时任务
+func Job() {
+	var dur = 1 * time.Hour
+	t := time.NewTimer(dur)
+	for {
+		<-t.C
+		t.Reset(dur)
+		// 把超时的session踢出去
+		for k, us := range session_map {
+			if us.Expires < time.Now().Unix() {
+				// session 超时
+				delete(session_map, k)
+				os.Remove(SESSIONS_DIR + "/" + k + ".json")
+			}
+		}
+	}
 }
 
 //go:embed page/*
@@ -455,15 +536,17 @@ var staticFiles embed.FS
 
 func main() {
 	var bind string
-	flag.StringVar(&USERS, "users", "users", "用户信息存档目录")
-	flag.StringVar(&DATA, "data", "markdown", "文档存储目录")
+	flag.StringVar(&USERS_DIR, "users", "users", "用户信息存档目录")
+	flag.StringVar(&DATA_DIR, "data", "markdown", "文档存储目录")
 	flag.StringVar(&bind, "bind", "127.0.0.1:11990", "绑定host与端口信息")
+	flag.StringVar(&SESSIONS_DIR, "sessions", "sessions", "会话持久化目录")
 	flag.Parse()
 	fmt.Println("浏览器地址：http://" + bind)
-	init_user()
+	init_work()
+	go Job()
 	webroot, _ := fs.Sub(staticFiles, "page")
 	http.Handle("/", http.StripPrefix("/", http.FileServer(http.FS(webroot))))
-	http.Handle("/markdown/", http.StripPrefix("/markdown", auth_markdown(http.FileServer(http.Dir(DATA+"/")))))
+	http.Handle("/markdown/", http.StripPrefix("/markdown", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/")))))
 	http.HandleFunc("/upload/", upload)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/logout", logout)
