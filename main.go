@@ -21,9 +21,10 @@ var DATA = "markdown"
 var USERS = "users"
 
 type UserInfo struct {
-	Name     string                `json:"name"`     // 用户名
-	Password string                `json:"password"` // 密码
-	Group    map[string]*GroupInfo `json:"group"`    // 文档组
+	Name      string                `json:"name"`       // 用户名
+	Password  string                `json:"password"`   // 密码
+	Group     map[string]*GroupInfo `json:"group"`      // 文档组
+	GroupSort []string              `json:"group_sort"` // 按时间先后顺序排列的组名
 }
 
 type GroupInfo struct {
@@ -117,13 +118,8 @@ func group_list(w http.ResponseWriter, r *http.Request) {
 	}
 	var user = user_map[session.Name]
 	w.Header().Add("content-type", "application/json")
-	var gp = user.Group
-	keys := make([]string, 0, len(gp))
-	for k := range gp {
-		keys = append(keys, k)
-	}
 	ret := make(map[string][]string)
-	ret["group"] = keys
+	ret["group"] = user.GroupSort
 	res, _ := json.Marshal(ret)
 	w.Write(res)
 }
@@ -248,6 +244,14 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 	var fname = DATA + "/" + session.Name + "/" + groupname
 	os.RemoveAll(fname)
 	delete(user_map[session.Name].Group, groupname)
+	var gs = user_map[session.Name].GroupSort
+	for i, v := range gs {
+		if v == groupname {
+			gs = append(gs[:i], gs[i+1:]...)
+			user_map[session.Name].GroupSort = gs
+			break
+		}
+	}
 	cache_save(session.Name)
 }
 
@@ -290,6 +294,7 @@ func group_check(username string, group string) {
 			Name:      group,
 			Markdowns: []string{},
 		}
+		user_map[username].GroupSort = append(user_map[username].GroupSort, group)
 		// 刷盘
 		cache_save(username)
 	}
