@@ -123,8 +123,17 @@
         </div>
 </body>
 <script>
+        const groupname = getUrlParam('groupname');
+        var currentMarkdown = '';
+        const renderer = new marked.Renderer();
+        renderer.image = function(href, title, text) {
+                return `<img src="markdown/${getUsername()}/${groupname}/${href}" alt="${text}">`;
+        };
+        renderer.link = function(href, title, text) {
+                return `<a href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
+        }
         marked.setOptions({
-                renderer: new marked.Renderer(),
+                renderer: renderer,
                 gfm: true,
                 breaks: true,
                 highlight: (code) => {
@@ -133,10 +142,8 @@
         });
 </script>
 <script>
-        const groupname = getUrlParam('groupname');
         const markdownInput = document.getElementById('markdown-input');
         const markdownOutput = document.getElementById('markdown-output');
-        currentMarkdown = '';
         const initmd = 
 `## 操作介绍
 + Ctrl+C保存
@@ -299,7 +306,7 @@
                 xhr.addEventListener('load', (e) => {
                         console.log('上传完成');
                         for (var i = 0; i < image_names.length; i++) {
-                                var textToInsert = `![${image_names[i]}](markdown/${getUsername()}/${groupname}/${currentMarkdown}/${image_names[i]})`;
+                                var textToInsert = `![${image_names[i]}](${currentMarkdown}/${image_names[i]})`;
                                 // 获取光标位置
                                 const startPos = markdownInput.selectionStart;
                                 const endPos = markdownInput.selectionEnd;
@@ -309,7 +316,7 @@
                                 markdownInput.selectionEnd = startPos + textToInsert.length;
                         }
                         for (var i = 0; i < file_names.length; i++) {
-                                var textToInsert = `[${file_names[i]}](markdown/${getUsername()}/${groupname}/${currentMarkdown}/${file_names[i]})`;
+                                var textToInsert = `[${file_names[i]}](${currentMarkdown}/${file_names[i]})`;
                                 // 获取光标位置
                                 const startPos = markdownInput.selectionStart;
                                 const endPos = markdownInput.selectionEnd;
