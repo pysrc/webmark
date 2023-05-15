@@ -23,6 +23,9 @@ var USERS_DIR = "users"
 // 会话持久化保存目录
 var SESSIONS_DIR = "sessions"
 
+// 会话过期时间默认一个月
+var SessionExpires = 30 * 24 * time.Hour
+
 type UserInfo struct {
 	Name      string                `json:"name"`       // 用户名
 	Password  string                `json:"password"`   // 密码
@@ -83,7 +86,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 				// 认证通过
 				var session_id = Uuid()
 				// 会话过期时间
-				var expires = time.Now().Add(30 * 24 * time.Hour)
+				var expires = time.Now().Add(SessionExpires)
 				session_map[session_id] = &UserSession{
 					SessionId: session_id,
 					Name:      username,
@@ -393,7 +396,14 @@ func Auth(w http.ResponseWriter, r *http.Request) (bool, *UserSession) {
 		AuthError(w, r)
 		return false, nil
 	} else {
-		var session = session_map[cookie.Value]
+		var session_id = cookie.Value
+		var session = session_map[session_id]
+		// 校验session是否过期
+		if session.Expires < time.Now().Unix() {
+			delete(session_map, session_id)
+			os.Remove(SESSIONS_DIR + "/" + session_id + ".json")
+			return false, nil
+		}
 		if session == nil {
 			// 用户未登录
 			AuthError(w, r)
@@ -546,6 +556,7 @@ func main() {
 	go Job()
 	webroot, _ := fs.Sub(staticFiles, "page")
 	http.Handle("/", http.StripPrefix("/", http.FileServer(http.FS(webroot))))
+	// http.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("page/"))))
 	http.Handle("/markdown/", http.StripPrefix("/markdown", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/")))))
 	http.HandleFunc("/upload/", upload)
 	http.HandleFunc("/login", login)

@@ -22,10 +22,19 @@
                                         <div class="navbar-header">
                                                 <a class="navbar-brand" href="#" id="s-group"></a>
                                         </div>
+                                        <div class="navbar-form navbar-left">
+                                                <div class="form-group">
+                                                        <input id="keyword" type="text" class="form-control"
+                                                                placeholder="关键词">
+                                                </div>
+                                                <button id="search" class="btn btn-default">搜索</button>
+                                        </div>
                                         <div id="myexample">
                                                 <ul class="nav navbar-nav">
                                                         <li><a href="#" data-toggle="modal"
-                                                                        data-target="#new-markdown-modal">新建文档</a></li>
+                                                                        data-target="#new-markdown-modal"><span
+                                                                                class="glyphicon glyphicon-floppy-save">
+                                                                                新建文档</span></a></li>
                                                         <div class="modal fade" id="new-markdown-modal" tabindex="-1"
                                                                 role="dialog" aria-hidden="true">
                                                                 <div class="modal-dialog">
@@ -68,11 +77,15 @@
                                                                         </div><!-- /.modal-content -->
                                                                 </div><!-- /.modal -->
                                                         </div>
-                                                        <li><a href="#" id="del-group">删除分组</a></li>
+                                                        <li><a href="#" id="del-group"><span
+                                                                                class="glyphicon glyphicon-trash">
+                                                                                删除分组</span></a></li>
                                                 </ul>
                                         </div>
                                         <ul class="nav navbar-nav navbar-right">
-                                                <li><a href="#" id="home"><span class="glyphicon glyphicon-home"></span></a></li>
+                                                <li><a href="#" id="home"><span
+                                                                        class="glyphicon glyphicon-home"></span></a>
+                                                </li>
                                         </ul>
                                 </div>
                         </nav>
@@ -124,23 +137,54 @@
         const markdownInput = document.getElementById('markdown-input');
         const markdownOutput = document.getElementById('markdown-output');
         currentMarkdown = '';
+        const initmd = 
+`## 操作介绍
++ Ctrl+C保存
++ 图片/文件支持复制粘贴、拖拽`
         function draw() {
                 const html = marked.parse(markdownInput.value);
                 markdownOutput.innerHTML = html;
         };
         $('title').html(groupname);
         $('#s-group').html(groupname);
+        var mds = [];
+        function show_mds() {
+                var keyword = $("#keyword").val();
+                if (keyword == null) {
+                        keyword = ''
+                }
+                keyword = keyword.toLowerCase();
+                // 清空列表
+                var gps = $("[data-gp='md']");
+                for (let index = 0; index < gps.length; index++) {
+                        const e = gps[index];
+                        e.remove();
+                }
+                if (mds) {
+                        for (let index = 0; index < mds.length; index++) {
+                                const e = mds[index];
+                                if (e.toLowerCase().indexOf(keyword) != -1) {
+                                        $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
+                                }
+                        }
+                }
+        }
         $.ajax({
                 url: "/markdown-list?group=" + groupname,
                 dataType: "json",
                 success: function (data) {
-                        var mds = data["markdowns"];
-                        if (mds) {
-                                for (let index = 0; index < mds.length; index++) {
-                                        const e = mds[index];
-                                        $("#s-md-list").append($(`<a href="#" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
-                                }
-                        }
+                        mds = data["markdowns"];
+                        show_mds();
+                }
+        });
+        $("#search").click(() => {
+                // 搜索
+                show_mds();
+        });
+        $("#keyword").keydown((e) => {
+                if (event.keyCode == 13) {
+                        // 回车查询
+                        show_mds();
                 }
         });
         function openMarkdown(mdname) {
@@ -165,7 +209,12 @@
         }
         $("#new-markdown-submit").click(() => {
                 // 新建文档保存
-                markdownSave($("#nmdtitle").val(), 'Hello');
+                markdownSave($("#nmdtitle").val(), initmd);
+        });
+        $("#nmdtitle").keydown((e)=>{
+                if (event.keyCode == 13) {
+                        markdownSave($("#nmdtitle").val(), initmd);
+                }
         });
         $("#edit-btn").click(() => {
                 var t = $("#edit-btn").text();
@@ -210,7 +259,7 @@
                         xhr.send();
                 }
         });
-        $("#home").click(()=>{
+        $("#home").click(() => {
                 location.href = "/user_main.html";
         });
         // ctrl+s保存

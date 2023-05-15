@@ -28,8 +28,14 @@
                     <div class="navbar-header">
                         <a class="navbar-brand" href="#">文档分组</a>
                     </div>
+                    <div class="navbar-form navbar-left">
+                        <div class="form-group">
+                            <input id="keyword" type="text" class="form-control" placeholder="关键词">
+                        </div>
+                        <button id="search" class="btn btn-default">搜索</button>
+                    </div>
                     <ul class="nav navbar-nav navbar-right">
-                        <li><a href="#" data-toggle="modal" data-target="#user-modal"><span class="glyphicon glyphicon-user"></span> 用户</a></li>
+                        <li><a href="#" data-toggle="modal" data-target="#user-modal"><span class="glyphicon glyphicon-cog"></span> 设置</a></li>
                         <!-- 模态框（Modal） -->
                         <div class="modal fade" id="user-modal" tabindex="-1" role="dialog" aria-hidden="true">
                             <div class="modal-dialog">
@@ -118,17 +124,44 @@
 </body>
 
 <script>
+    var groups = [];
+    function show_groups() {
+        var keyword = $("#keyword").val();
+        if(keyword == null) {
+            keyword = ''
+        }
+        keyword = keyword.toLowerCase();
+        // 清空列表
+        var gps = $("[data-gp='group']");
+        for (let index = 0; index < gps.length; index++) {
+            const e = gps[index];
+            e.remove();
+        }
+        if (groups) {
+            for (let index = 0; index < groups.length; index++) {
+                const e = groups[index];
+                if(e.toLowerCase().indexOf(keyword) != -1) {
+                    $("#s-new").after($(`<a href="#" data-gp="group" class="list-group-item" onclick="openGroup('${e}')">${e}</a>`));
+                }
+            }
+        }
+    }
     $.ajax({
         url: "/group-list",
         dataType: "json",
         success: function (data) {
-            var gp = data["group"];
-            if (gp) {
-                for (let index = 0; index < gp.length; index++) {
-                    const e = gp[index];
-                    $("#s-new").after($(`<a href="#" class="list-group-item" onclick="openGroup('${e}')">${e}</a>`));
-                }
-            }
+            groups = data["group"];
+            show_groups();
+        }
+    });
+    $("#search").click(()=>{
+        // 搜索
+        show_groups();
+    });
+    $("#keyword").keydown((e)=>{
+        if(event.keyCode==13){
+            // 回车查询
+            show_groups();
         }
     });
     $("#logout").click(() => {
