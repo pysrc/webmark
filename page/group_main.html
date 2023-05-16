@@ -135,7 +135,11 @@
                 return `<img src="markdown/${getUsername()}/${groupname}/${href}" alt="${text}">`;
         };
         renderer.link = function (href, title, text) {
-                return `<a href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
+                if(href.startsWith(`${currentMarkdown}/`)) {
+                        return `<a target="_blank" href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
+                } else {
+                        return `<a target="_blank" href="${href}">${text}</a>`;
+                }
         }
         marked.setOptions({
                 renderer: renderer,
