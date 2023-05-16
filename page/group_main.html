@@ -155,7 +155,7 @@
         const renderer = new marked.Renderer();
         var abstracts = [];
         renderer.image = function (href, title, text) {
-                return `<img src="markdown/${getUsername()}/${groupname}/${href}" alt="${text}">`;
+                return `<img src="markdown/${getUsername()}/${groupname}/${href}" style="width: 100%;height: 100%;" alt="${text}">`;
         };
         renderer.link = function (href, title, text) {
                 if (href.startsWith(`${currentMarkdown}/`)) {
