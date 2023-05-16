@@ -107,14 +107,14 @@
                         <div class="col-sm-10">
                                 <!-- 右边 -->
                                 <div id="right-show" style="display: none;">
-                                        <div class="col-sm-10">
-                                                <div class="btn-group" style="position: fixed;top: 20%;right: 18%;">
+                                        <div class="col-sm-8">
+                                                <div class="btn-group" style="position: fixed;top: 16%;right: 28%;">
                                                         <button id="edit-btn" type="button"
                                                                 class="btn btn-default">编辑</button>
                                                         <button id="save-btn" type="button"
                                                                 class="btn btn-primary">保存</button>
                                                         <button id="export-md-btn" type="button"
-                                                                class="btn btn-primary">导出</button>
+                                                                class="btn btn-default">导出</button>
                                                         <button id="delete-btn" type="button"
                                                                 class="btn btn-danger">删除</button>
                                                 </div>
@@ -140,9 +140,9 @@
                                                         </div>
                                                 </div>
                                         </div>
-                                        <div class="col-sm-2">
+                                        <div class="col-sm-4">
                                                 <div id="treeview"
-                                                        style="position: fixed;overflow-y :scroll;height: 80%;"></div>
+                                                        style="position: fixed;overflow-y :scroll;height: 75%;"></div>
                                         </div>
                                 </div>
                         </div>
@@ -153,7 +153,7 @@
         const groupname = getUrlParam('groupname');
         var currentMarkdown = '';
         const renderer = new marked.Renderer();
-        var titles = [];
+        var abstracts = [];
         renderer.image = function (href, title, text) {
                 return `<img src="markdown/${getUsername()}/${groupname}/${href}" alt="${text}">`;
         };
@@ -166,13 +166,34 @@
         }
         renderer.heading = function (text, level, raw) {
                 var id = `${Math.random()}`;
-                for (var i = 1; i < level; i++) {
-                        text = '&nbsp;' + text;
-                }
-                titles.push({
+                var node = {
                         "href": `#${id}`,
-                        "text": text
-                });
+                        "text": text,
+                        "level": level
+                };
+                if (abstracts.length == 0) {
+                        abstracts.push(node);
+                } else {
+                        var curs = abstracts;
+                        var t = abstracts[abstracts.length - 1];
+                        while (true) {
+                                if (level > t.level) {
+                                        // 子项
+                                        if (t.nodes == null) {
+                                                t.nodes = [];
+                                                t.nodes.push(node);
+                                                break;
+                                        } else {
+                                                curs = t.nodes;
+                                                t = t.nodes[t.nodes.length - 1];
+                                        }
+                                } else {
+                                        // 平级，添加到当前平级列表
+                                        curs.push(node);
+                                        break;
+                                }
+                        }
+                }
                 return `<h${level} id="${id}">${text}</h${level}>`;
         };
         marked.setOptions({
@@ -192,7 +213,7 @@
 + Ctrl+C保存
 + 图片/文件支持复制粘贴、拖拽`
         function draw() {
-                titles = [];
+                abstracts = [];
                 const html = marked.parse(markdownInput.value);
                 markdownOutput.innerHTML = html;
                 $('#treeview').html('');
@@ -202,7 +223,8 @@
                         enableLinks: true,
                         showBorder: false,
                         highlightSelected: false,
-                        data: titles
+                        levels: 5,
+                        data: abstracts
                 });
         };
         $('title').html(groupname);
