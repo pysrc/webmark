@@ -34,8 +34,43 @@
                         </div>
                         <button id="search" class="btn btn-default">搜索</button>
                     </div>
-                    <ul class="nav navbar-nav navbar-right">
+                    <ul class="nav navbar-nav">
+                        <li><a href="#" data-toggle="modal" data-target="#new-group-modal"><span
+                                    class="glyphicon glyphicon-floppy-save">
+                                    新建分组</span></a></li>
                         <li><a href="#" id="export"><span class="glyphicon glyphicon-save"></span> 导出</a></li>
+                        <!-- 模态框（Modal） -->
+                        <div class="modal fade" id="new-group-modal" tabindex="-1" role="dialog" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                                            &times;
+                                        </button>
+                                        <h4 class="modal-title" id="myModalLabel">
+                                            新建分组
+                                        </h4>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="new-group" role="form" action="/new-group" method="post">
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" name="groupname"
+                                                    placeholder="分组标题">
+                                            </div>
+                                        </form>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-default" data-dismiss="modal">关闭
+                                        </button>
+                                        <button type="button" class="btn btn-primary" id="new-group-submit">
+                                            提交
+                                        </button>
+                                    </div>
+                                </div><!-- /.modal-content -->
+                            </div><!-- /.modal -->
+                        </div>
+                    </ul>
+                    <ul class="nav navbar-nav navbar-right">
                         <li><a href="#" data-toggle="modal" data-target="#user-modal"><span
                                     class="glyphicon glyphicon-cog"></span> 设置</a></li>
                         <!-- 模态框（Modal） -->
@@ -85,38 +120,7 @@
 
         <div class="row" style="padding-top:50px">
             <div class="col text-center">
-                <div class="list-group list-group-horizontal">
-                    <a href="#" id="s-new" class="list-group-item active" data-toggle="modal"
-                        data-target="#new-group-modal">新建</a>
-                    <!-- 模态框（Modal） -->
-                    <div class="modal fade" id="new-group-modal" tabindex="-1" role="dialog" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
-                                        &times;
-                                    </button>
-                                    <h4 class="modal-title" id="myModalLabel">
-                                        新建分组
-                                    </h4>
-                                </div>
-                                <div class="modal-body">
-                                    <form id="new-group" role="form" action="/new-group" method="post">
-                                        <div class="form-group">
-                                            <input type="text" class="form-control" name="groupname" placeholder="分组标题">
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭
-                                    </button>
-                                    <button type="button" class="btn btn-primary" id="new-group-submit">
-                                        提交
-                                    </button>
-                                </div>
-                            </div><!-- /.modal-content -->
-                        </div><!-- /.modal -->
-                    </div>
+                <div id="s-show" class="list-group list-group-horizontal">
                 </div>
 
             </div>
@@ -143,7 +147,7 @@
             for (let index = 0; index < groups.length; index++) {
                 const e = groups[index];
                 if (e.toLowerCase().indexOf(keyword) != -1) {
-                    $("#s-new").after($(`<a href="#" data-gp="group" class="list-group-item" onclick="openGroup('${e}')">${e}</a>`));
+                    $("#s-show").append($(`<a href="#" data-gp="group" class="list-group-item" onclick="openGroup('${e}')">${e}</a>`));
                 }
             }
         }
