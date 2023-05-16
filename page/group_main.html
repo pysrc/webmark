@@ -12,6 +12,23 @@
         <script src="static/js/marked.min.js"></script>
         <link rel="stylesheet" href="static/css/default.min.css">
         <script src="static/js/highlight.min.js"></script>
+        <style>
+                .top {
+                        cursor: pointer;
+                        width: 70px;
+                        height: 40px;
+                        border-radius: 10px;
+                        background: white;
+                        color: blue;
+                        opacity: 0.5;
+                        line-height: 50px;
+                        text-align: center;
+                        font-size: 25px;
+                        position: fixed;
+                        bottom: 2%;
+                        right: 2%;
+                }
+        </style>
 </head>
 
 <body>
@@ -100,21 +117,20 @@
                         <div class="col-sm-10">
                                 <div id="right-show" style="display: none;">
                                         <!-- 右边 -->
-                                        <div class="btn-group" style="margin-top: 10px;">
-                                                <button id="edit-btn" type="button" class="btn btn-default">编辑</button>
-                                                <button id="save-btn" type="button" class="btn btn-primary">保存</button>
-                                                <button id="export-md-btn" type="button"
-                                                        class="btn btn-default">导出</button>
-                                                <button id="delete-btn" type="button" class="btn btn-danger">删除</button>
-                                        </div>
+                                        <ul class="list-group" style="position: fixed;right: 2%;top: 50%;">
+                                                <a id="edit-btn" class="list-group-item list-group-item-primary">编辑</a></li>
+                                                <a id="save-btn" class="list-group-item list-group-item-success">保存</a></li>
+                                                <a id="export-md-btn" class="list-group-item list-group-item-warning">导出</a></li>
+                                                <a id="delete-btn" class="list-group-item list-group-item-danger">删除</a></li>
+                                        </ul>
                                         <div id="edit-area" role="form" style="margin-top: 10px; display: none;">
                                                 <div class="form-group">
                                                         <textarea id="markdown-input"
                                                                 placeholder="在这里可以写Markdown，支持文件、图片粘贴"
-                                                                class="form-control" rows="100"></textarea>
+                                                                class="form-control" rows="25"></textarea>
                                                 </div>
                                         </div>
-                                        <div id="s-markdown" class="panel panel-primary" style="margin-top: 10px;">
+                                        <div id="s-markdown" class="panel panel-primary">
                                                 <div class="panel-heading">
                                                         <h3 id="s-title" class="panel-title"></h3>
                                                 </div>
@@ -123,6 +139,11 @@
                                                 </div>
                                         </div>
                                 </div>
+                        </div>
+                </div>
+                <div class="row">
+                        <div class='top'>
+                                <a id="toup" href="#"><span class='glyphicon glyphicon-menu-up'></span></a>
                         </div>
                 </div>
         </div>
@@ -135,7 +156,7 @@
                 return `<img src="markdown/${getUsername()}/${groupname}/${href}" alt="${text}">`;
         };
         renderer.link = function (href, title, text) {
-                if(href.startsWith(`${currentMarkdown}/`)) {
+                if (href.startsWith(`${currentMarkdown}/`)) {
                         return `<a target="_blank" href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
                 } else {
                         return `<a target="_blank" href="${href}">${text}</a>`;
@@ -373,6 +394,9 @@
                 e.stopPropagation();
                 var files = e.dataTransfer.files;
                 upload(files);
+        });
+        $("#toup").click(() => {
+                document.documentElement.scrollTop = 0;
         });
 </script>
 
