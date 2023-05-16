@@ -13,6 +13,12 @@
         <link rel="stylesheet" href="static/css/default.min.css">
         <script src="static/js/highlight.min.js"></script>
         <script src="static/js/bootstrap-treeview.min.js"></script>
+        <style>
+                [class*="col-"] {
+                        padding-right: 1px;
+                        padding-left: 1px;
+                }
+        </style>
 </head>
 
 <body>
@@ -98,41 +104,47 @@
                         <div class="col-sm-2">
                                 <ul id="s-md-list" class="list-group"></ul>
                         </div>
-                        <div class="col-sm-8">
+                        <div class="col-sm-10">
+                                <!-- 右边 -->
                                 <div id="right-show" style="display: none;">
-                                        <!-- 右边 -->
-                                        <ul class="list-group" style="position: fixed;right: 2%;bottom: 0%;">
-                                                <a id="edit-btn" class="list-group-item list-group-item-primary">编辑</a>
-                                                </li>
-                                                <a id="save-btn" class="list-group-item list-group-item-success">保存</a>
-                                                </li>
-                                                <a id="export-md-btn"
-                                                        class="list-group-item list-group-item-warning">导出</a></li>
-                                                <a id="delete-btn" class="list-group-item list-group-item-danger">删除</a>
-                                                </li>
-                                                <a id="toup" href="#" class="list-group-item"
-                                                        style="text-align: center; color: blue;"><span
-                                                                class='glyphicon glyphicon-menu-up'></span></a>
-                                        </ul>
-                                        <div id="edit-area" role="form" style="margin-top: 10px; display: none;">
-                                                <div class="form-group">
-                                                        <textarea id="markdown-input"
-                                                                placeholder="在这里可以写Markdown，支持文件、图片粘贴"
-                                                                class="form-control" rows="25"></textarea>
+                                        <div class="col-sm-10">
+                                                <div class="btn-group" style="position: fixed;top: 20%;right: 18%;">
+                                                        <button id="edit-btn" type="button"
+                                                                class="btn btn-default">编辑</button>
+                                                        <button id="save-btn" type="button"
+                                                                class="btn btn-primary">保存</button>
+                                                        <button id="export-md-btn" type="button"
+                                                                class="btn btn-primary">导出</button>
+                                                        <button id="delete-btn" type="button"
+                                                                class="btn btn-danger">删除</button>
+                                                </div>
+                                                <div class="list-group" style="position: fixed;right: 2%;bottom: 0%;">
+                                                        <a id="toup" href="#" class="list-group-item"
+                                                                style="text-align: center; color: blue;"><span
+                                                                        class='glyphicon glyphicon-menu-up'></span></a>
+                                                </div>
+                                                <div id="edit-area" role="form"
+                                                        style="margin-top: 10px; display: none;">
+                                                        <div class="form-group">
+                                                                <textarea id="markdown-input"
+                                                                        placeholder="在这里可以写Markdown，支持文件、图片粘贴"
+                                                                        class="form-control" rows="25"></textarea>
+                                                        </div>
+                                                </div>
+                                                <div id="s-markdown" class="panel panel-primary">
+                                                        <div class="panel-heading">
+                                                                <h3 id="s-title" class="panel-title"></h3>
+                                                        </div>
+                                                        <div class="panel-body">
+                                                                <div id="markdown-output"></div>
+                                                        </div>
                                                 </div>
                                         </div>
-                                        <div id="s-markdown" class="panel panel-primary">
-                                                <div class="panel-heading">
-                                                        <h3 id="s-title" class="panel-title"></h3>
-                                                </div>
-                                                <div class="panel-body">
-                                                        <div id="markdown-output"></div>
-                                                </div>
+                                        <div class="col-sm-2">
+                                                <div id="treeview"
+                                                        style="position: fixed;overflow-y :scroll;height: 80%;"></div>
                                         </div>
                                 </div>
-                        </div>
-                        <div class="col-sm-2">
-                                <div id="treeview" style="position: fixed;"></div>
                         </div>
                 </div>
         </div>
@@ -188,6 +200,8 @@
                         backColor: "#FFFFFF",
                         color: "#428bca",
                         enableLinks: true,
+                        showBorder: false,
+                        highlightSelected: false,
                         data: titles
                 });
         };
