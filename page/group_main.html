@@ -12,6 +12,7 @@
         <script src="static/js/marked.min.js"></script>
         <link rel="stylesheet" href="static/css/default.min.css">
         <script src="static/js/highlight.min.js"></script>
+        <script src="static/js/bootstrap-treeview.min.js"></script>
 </head>
 
 <body>
@@ -97,15 +98,21 @@
                         <div class="col-sm-2">
                                 <ul id="s-md-list" class="list-group"></ul>
                         </div>
-                        <div class="col-sm-10">
+                        <div class="col-sm-8">
                                 <div id="right-show" style="display: none;">
                                         <!-- 右边 -->
                                         <ul class="list-group" style="position: fixed;right: 2%;bottom: 0%;">
-                                                <a id="edit-btn" class="list-group-item list-group-item-primary">编辑</a></li>
-                                                <a id="save-btn" class="list-group-item list-group-item-success">保存</a></li>
-                                                <a id="export-md-btn" class="list-group-item list-group-item-warning">导出</a></li>
-                                                <a id="delete-btn" class="list-group-item list-group-item-danger">删除</a></li>
-                                                <a id="toup" href="#" class="list-group-item" style="text-align: center; color: blue;"><span class='glyphicon glyphicon-menu-up'></span></a>
+                                                <a id="edit-btn" class="list-group-item list-group-item-primary">编辑</a>
+                                                </li>
+                                                <a id="save-btn" class="list-group-item list-group-item-success">保存</a>
+                                                </li>
+                                                <a id="export-md-btn"
+                                                        class="list-group-item list-group-item-warning">导出</a></li>
+                                                <a id="delete-btn" class="list-group-item list-group-item-danger">删除</a>
+                                                </li>
+                                                <a id="toup" href="#" class="list-group-item"
+                                                        style="text-align: center; color: blue;"><span
+                                                                class='glyphicon glyphicon-menu-up'></span></a>
                                         </ul>
                                         <div id="edit-area" role="form" style="margin-top: 10px; display: none;">
                                                 <div class="form-group">
@@ -124,18 +131,17 @@
                                         </div>
                                 </div>
                         </div>
-                </div>
-                <!-- <div class="row">
-                        <div class='top'>
-                                <a id="toup" href="#"><span class='glyphicon glyphicon-menu-up'></span></a>
+                        <div class="col-sm-2">
+                                <div id="treeview" style="position: fixed;"></div>
                         </div>
-                </div> -->
+                </div>
         </div>
 </body>
 <script>
         const groupname = getUrlParam('groupname');
         var currentMarkdown = '';
         const renderer = new marked.Renderer();
+        var titles = [];
         renderer.image = function (href, title, text) {
                 return `<img src="markdown/${getUsername()}/${groupname}/${href}" alt="${text}">`;
         };
@@ -146,6 +152,17 @@
                         return `<a target="_blank" href="${href}">${text}</a>`;
                 }
         }
+        renderer.heading = function (text, level, raw) {
+                var id = `${Math.random()}`;
+                for (var i = 1; i < level; i++) {
+                        text = '&nbsp;' + text;
+                }
+                titles.push({
+                        "href": `#${id}`,
+                        "text": text
+                });
+                return `<h${level} id="${id}">${text}</h${level}>`;
+        };
         marked.setOptions({
                 renderer: renderer,
                 gfm: true,
@@ -163,8 +180,16 @@
 + Ctrl+C保存
 + 图片/文件支持复制粘贴、拖拽`
         function draw() {
+                titles = [];
                 const html = marked.parse(markdownInput.value);
                 markdownOutput.innerHTML = html;
+                $('#treeview').html('');
+                $('#treeview').treeview({
+                        backColor: "#FFFFFF",
+                        color: "#428bca",
+                        enableLinks: true,
+                        data: titles
+                });
         };
         $('title').html(groupname);
         $('#s-group').html(groupname);
