@@ -319,9 +319,15 @@
                         $(g).hide();
                 }
         }
+        function mdtrim() {
+                // 处理掉多余文本
+                markdownInput.value = markdownInput.value.trim();
+                markdownInput.value = markdownInput.value.replace(/\n+/g, '\n');
+        }
         $("#edit-btn").click(() => {
                 var t = $("#edit-btn").text();
                 if (t == '编辑') {
+                        mdtrim();
                         hideIgnorebigcss();
                         // 计算视距高度比例
                         var rate = -markdownOutput.getBoundingClientRect().y / markdownOutput.getBoundingClientRect().height;
@@ -350,6 +356,7 @@
                 window.open(`/export/${groupname}/${currentMarkdown}`);
         });
         function savemd() {
+                mdtrim();
                 var text = markdownInput.value;
                 var xhr = new XMLHttpRequest();
                 xhr.addEventListener('load', (e) => {
