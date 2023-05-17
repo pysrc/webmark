@@ -144,6 +144,8 @@
                                                 <div id="treeview"
                                                         style="position: fixed;overflow-y :scroll;height: 75%;"></div>
                                         </div>
+                                        <!-- 其他组件 -->
+                                        <div id="info" style="width: 15%;float: right;z-index: 9999;position: relative;"></div>
                                 </div>
                         </div>
                 </div>
@@ -320,6 +322,12 @@
         function savemd() {
                 var text = markdownInput.value;
                 var xhr = new XMLHttpRequest();
+                xhr.addEventListener('load', (e) => {
+                        // 显示成功提示
+                        var dom = $('<div class="alert alert-success">保存成功！</div>');
+                        $("#info").append(dom);
+                        window.setTimeout(function(){ dom.remove(); }, 2000);
+                });
                 xhr.open("POST", `/new-markdown/${groupname}/${currentMarkdown}`);
                 xhr.setRequestHeader("Content-Type", "text/plain");
                 xhr.send(text);
