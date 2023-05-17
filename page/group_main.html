@@ -145,7 +145,8 @@
                                                         style="position: fixed;overflow-y :scroll;height: 75%;"></div>
                                         </div>
                                         <!-- 其他组件 -->
-                                        <div id="info" style="width: 15%;float: right;z-index: 9999;position: relative;"></div>
+                                        <div id="info"
+                                                style="width: 15%;float: right;z-index: 9999;position: relative;"></div>
                                 </div>
                         </div>
                 </div>
@@ -153,11 +154,12 @@
 </body>
 <script>
         const groupname = getUrlParam('groupname');
+        const ignorebigcss = "ignorebigcss"; // 忽略忽大忽小的css
         var currentMarkdown = '';
         const renderer = new marked.Renderer();
         var abstracts = [];
         renderer.image = function (href, title, text) {
-                return `<img src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
+                return `<img class="${ignorebigcss}" src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;display: none;" alt="${text}">`;
         };
         renderer.link = function (href, title, text) {
                 if (href.startsWith(`${currentMarkdown}/`)) {
@@ -196,7 +198,7 @@
                                 }
                         }
                 }
-                return `<h${level} id="${id}">${text}</h${level}>`;
+                return `<h${level} class="${ignorebigcss}" style="display: none;" id="${id}">${text}</h${level}>`;
         };
         marked.setOptions({
                 renderer: renderer,
@@ -278,6 +280,7 @@
                 var ret = $.ajax({ url: `/markdown/${getUsername()}/${groupname}/${mdname}.md`, cache: false, async: false });
                 markdownInput.value = ret.responseText;
                 draw();
+                showIgnorebigcss();
         }
         function markdownSave(mdname, content) {
                 var xhr = new XMLHttpRequest();
@@ -300,17 +303,44 @@
                         markdownSave($("#nmdtitle").val(), initmd);
                 }
         });
+        // 显示忽大忽小元素
+        function showIgnorebigcss() {
+                var gcss = markdownOutput.getElementsByClassName(ignorebigcss);
+                for (var index = 0; index < gcss.length; index++) {
+                        var g = gcss[index];
+                        $(g).show();
+                }
+        }
+        // 隐藏忽大忽小元素
+        function hideIgnorebigcss() {
+                var gcss = markdownOutput.getElementsByClassName(ignorebigcss);
+                for (var index = 0; index < gcss.length; index++) {
+                        var g = gcss[index];
+                        $(g).hide();
+                }
+        }
         $("#edit-btn").click(() => {
                 var t = $("#edit-btn").text();
                 if (t == '编辑') {
+                        hideIgnorebigcss();
+                        // 计算视距高度比例
+                        var rate = -markdownOutput.getBoundingClientRect().y / markdownOutput.getBoundingClientRect().height;
                         $("#edit-area").show();
                         $("#edit-btn").text('预览');
                         $("#s-markdown").hide();
+                        markdownInput.scrollTop = markdownInput.scrollHeight * rate;
                 } else {
+                        var rate = markdownInput.scrollTop / markdownInput.scrollHeight;
                         $("#edit-area").hide();
                         $("#edit-btn").text('编辑');
                         $("#s-markdown").show();
                         draw();
+                        // 先滚动到0
+                        document.documentElement.scrollTop = 0;
+                        var inity = markdownOutput.getBoundingClientRect().y;
+                        document.documentElement.scrollTop = inity + markdownOutput.getBoundingClientRect().height * rate;
+                        // 再显示图片
+                        showIgnorebigcss();
                 }
         });
         $("#export-group").click(() => {
@@ -326,7 +356,7 @@
                         // 显示成功提示
                         var dom = $('<div class="alert alert-success">保存成功！</div>');
                         $("#info").append(dom);
-                        window.setTimeout(function(){ dom.remove(); }, 2000);
+                        window.setTimeout(function () { dom.remove(); }, 2000);
                 });
                 xhr.open("POST", `/new-markdown/${groupname}/${currentMarkdown}`);
                 xhr.setRequestHeader("Content-Type", "text/plain");
