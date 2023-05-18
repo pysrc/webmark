@@ -168,6 +168,9 @@
                         return `<a target="_blank" href="${href}">${text}</a>`;
                 }
         }
+        renderer.table = function(header, body) {
+                return `<table class="table table-bordered"><thead>${header}</thead><tbody>${body}</tbody></table>`;
+        }
         renderer.heading = function (text, level, raw) {
                 var id = `${Math.random()}`;
                 var node = {
