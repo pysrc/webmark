@@ -322,7 +322,7 @@
         function mdtrim() {
                 // 处理掉多余文本
                 markdownInput.value = markdownInput.value.trim();
-                markdownInput.value = markdownInput.value.replace(/\n+/g, '\n');
+                markdownInput.value = markdownInput.value.replace(/\n{3,}/g, '\n\n');
         }
         $("#edit-btn").click(() => {
                 var t = $("#edit-btn").text();
