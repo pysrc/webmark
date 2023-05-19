@@ -108,7 +108,7 @@
                                 <!-- 右边 -->
                                 <div id="right-show" style="display: none;">
                                         <div class="col-sm-8">
-                                                <div class="btn-group" style="position: fixed;top: 16%;right: 28%;">
+                                                <div class="btn-group" style="position: fixed;top: 10%;right: 28%;">
                                                         <button id="edit-btn" type="button"
                                                                 class="btn btn-default">编辑</button>
                                                         <button id="save-btn" type="button"
@@ -119,14 +119,19 @@
                                                                 class="btn btn-danger">删除</button>
                                                 </div>
                                                 <div id="edit-area" role="form"
-                                                        style="margin-top: 10px; display: none;">
+                                                        style="margin-top: 6%; display: none;">
                                                         <div class="form-group">
-                                                                <textarea id="markdown-input"
-                                                                        placeholder="在这里可以写Markdown，支持文件、图片粘贴"
-                                                                        class="form-control" rows="25"></textarea>
+                                                                <div class="col-sm-6">
+                                                                        <textarea id="markdown-input"
+                                                                                placeholder="在这里可以写Markdown，支持文件、图片粘贴"
+                                                                                class="form-control"
+                                                                                style="height: 400px;"></textarea>
+                                                                </div>
+                                                                <div class="col-sm-6" id="markdown-input-show" style="height: 400px;overflow:auto;">
+                                                                </div>
                                                         </div>
                                                 </div>
-                                                <div id="s-markdown" class="panel panel-primary">
+                                                <div id="s-markdown" class="panel panel-primary" style="margin-top: 6%;">
                                                         <div class="panel-heading">
                                                                 <h3 id="s-title" class="panel-title"></h3>
                                                         </div>
@@ -155,11 +160,13 @@
 <script>
         const groupname = getUrlParam('groupname');
         const ignorebigcss = "ignorebigcss"; // 忽略忽大忽小的css
+        // 图片缓存
+        var imgCache = {};
         var currentMarkdown = '';
         const renderer = new marked.Renderer();
         var abstracts = [];
         renderer.image = function (href, title, text) {
-                return `<img class="${ignorebigcss}" src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;display: none;" alt="${text}">`;
+                return `<img class="${ignorebigcss}" data-src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;display: none;" alt="${text}">`;
         };
         renderer.link = function (href, title, text) {
                 if (href.startsWith(`${currentMarkdown}/`)) {
@@ -168,7 +175,7 @@
                         return `<a target="_blank" href="${href}">${text}</a>`;
                 }
         }
-        renderer.table = function(header, body) {
+        renderer.table = function (header, body) {
                 return `<table class="table table-bordered"><thead>${header}</thead><tbody>${body}</tbody></table>`;
         }
         renderer.heading = function (text, level, raw) {
@@ -215,14 +222,15 @@
 <script>
         const markdownInput = document.getElementById('markdown-input');
         const markdownOutput = document.getElementById('markdown-output');
+        const markdownPreview = document.getElementById('markdown-input-show');
         const initmd =
                 `## 操作介绍
 + Ctrl+C保存
 + 图片/文件支持复制粘贴、拖拽`
-        function draw() {
+        function _draw (ele) {
                 abstracts = [];
                 const html = marked.parse(markdownInput.value);
-                markdownOutput.innerHTML = html;
+                ele.innerHTML = html;
                 $('#treeview').html('');
                 $('#treeview').treeview({
                         backColor: "#FFFFFF",
@@ -233,7 +241,57 @@
                         levels: 5,
                         data: abstracts
                 });
+                load_images();
+        }
+        function draw() {
+                _draw(markdownOutput);
         };
+        function drawPreview() {
+                _draw(markdownPreview);
+                pvshowIgnorebigcss();
+        }
+        function load_images() {
+                var imgs=$('img');
+                for (let index = 0; index < imgs.length; index++) {
+                        const ele = imgs[index];
+                        if(ele.hasAttribute('data-src')) {
+                                _load_image(ele,ele.getAttribute('data-src'));
+                        }
+                }
+        }
+        function _load_image(ele, url) {
+                if (imgCache.hasOwnProperty(url)) {
+                        _loadImage_file(ele, imgCache[url]);
+                } else {
+                        var xhr = new XMLHttpRequest();
+                        xhr.onload = function () {
+                                if (xhr.status == 200) {
+                                        var binStr = this.responseText;
+                                        var arr = new Uint8Array(binStr.length);
+                                        for (var i = 0, l = binStr.length; i < l; i++) {
+                                                arr[i] = binStr.charCodeAt(i);
+                                        }
+                                        var blob = new Blob([arr.buffer], { type: 'image/png' })
+                                        imgCache[url] = blob;
+                                        _loadImage_file(ele, blob);
+                                } else {
+                                        console.log('error');
+                                }
+                        }
+                        xhr.open('get', url, true);
+                        //兼容老浏览器。必须，以文本格式接受，字符集自定义
+                        xhr.overrideMimeType('text/plain;charset=x-user-defined');
+                        xhr.send(null);
+                }
+
+        }
+        function _loadImage_file(ele, blob) {
+                var fr = new FileReader();
+                fr.readAsDataURL(blob);
+                fr.onload = function (e) {
+                        ele.src = e.target.result;
+                }
+        }
         $('title').html(groupname);
         $('#s-group').html(groupname);
         var mds = [];
@@ -314,6 +372,14 @@
                         $(g).show();
                 }
         }
+        // 显示忽大忽小元素（预览）
+        function pvshowIgnorebigcss() {
+                var gcss = markdownPreview.getElementsByClassName(ignorebigcss);
+                for (var index = 0; index < gcss.length; index++) {
+                        var g = gcss[index];
+                        $(g).show();
+                }
+        }
         // 隐藏忽大忽小元素
         function hideIgnorebigcss() {
                 var gcss = markdownOutput.getElementsByClassName(ignorebigcss);
@@ -322,15 +388,9 @@
                         $(g).hide();
                 }
         }
-        function mdtrim() {
-                // 处理掉多余文本
-                markdownInput.value = markdownInput.value.trim();
-                markdownInput.value = markdownInput.value.replace(/\n{3,}/g, '\n\n');
-        }
         $("#edit-btn").click(() => {
                 var t = $("#edit-btn").text();
                 if (t == '编辑') {
-                        mdtrim();
                         hideIgnorebigcss();
                         // 计算视距高度比例
                         var rate = -markdownOutput.getBoundingClientRect().y / markdownOutput.getBoundingClientRect().height;
@@ -338,6 +398,7 @@
                         $("#edit-btn").text('预览');
                         $("#s-markdown").hide();
                         markdownInput.scrollTop = markdownInput.scrollHeight * rate;
+                        drawPreview();
                 } else {
                         var rate = markdownInput.scrollTop / markdownInput.scrollHeight;
                         $("#edit-area").hide();
@@ -359,7 +420,6 @@
                 window.open(`/export/${groupname}/${currentMarkdown}`);
         });
         function savemd() {
-                mdtrim();
                 var text = markdownInput.value;
                 var xhr = new XMLHttpRequest();
                 xhr.addEventListener('load', (e) => {
@@ -403,7 +463,16 @@
                 if (event.ctrlKey && event.key === 's') {
                         event.preventDefault();
                         savemd();
+                }else if(event.key === 'Enter') {
+                        // 回车预览
+                        drawPreview();
                 }
+        });
+        // 滚动
+        markdownInput.addEventListener('scroll', (event) => {
+                // 滚动比例
+                var rate=markdownInput.getBoundingClientRect().height/markdownPreview.getBoundingClientRect().height;
+                markdownPreview.scrollTop = markdownInput.scrollTop/rate;
         });
 
         // 文件上传
@@ -473,6 +542,7 @@
                 if (clipboardData.types.includes('Files')) {
                         var files = clipboardData.files;
                         upload(files);
+                        drawPreview();
                 }
         });
         markdownInput.addEventListener('input', () => {
