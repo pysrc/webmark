@@ -1,0 +1,136 @@
+.loweditor-editor {
+    padding: 5px;
+    min-height: 200px;
+    max-height: 500px;
+    overflow: auto;
+    outline: none;
+    margin-top: 10px;
+}
+
+.loweditor-tool-item {
+    font-size: 14px;
+    padding: 5px 10px;
+    border: none;
+    background-color: #f2f2f2;
+    cursor: pointer;
+}
+
+.loweditor-tool-input-item {
+    font-size: 14px;
+    padding: 5px 10px;
+    border: none;
+    background-color: #f2f2f2;
+    cursor: auto;
+    max-width: 35px;
+}
+
+.loweditor-tool-item:hover {
+    background-color: #ddd;
+}
+
+.loweditor-modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.loweditor-modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 600px;
+}
+
+.loweditor-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.loweditor-modal-title {
+    margin: 0;
+    font-size: 18px;
+}
+
+#loweditor-insert-code-btn {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#loweditor-insert-code-btn:hover {
+    background-color: #0069d9;
+}
+
+.loweditor-close {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+    background-color: #edf0ea69;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.loweditor-close:hover,
+.loweditor-close:focus {
+    background-color: #b7b9bc;
+}
+
+.loweditor-modal-body {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+#loweditor-code-input {
+    width: 99%;
+    height: 200px;
+    font-size: 14px;
+    line-height: 1.5;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.loweditor-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 20px;
+}
+
+#loweditor-custom-menu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    /* width: 150px; */
+    border: 1px solid #ccc;
+    border-bottom: none;
+    background-color: #fff;
+    position: absolute;
+    display: none;
+}
+
+#loweditor-custom-menu li {
+    border-bottom: 1px solid #ccc;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+#loweditor-custom-menu li:hover {
+    background-color: #ccc;
+}

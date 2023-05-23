@@ -2,565 +2,367 @@
 <html>
 
 <head>
-        <title></title>
-        <meta charset="utf-8">
-        <link href="static/css/bootstrap.min.css" rel="stylesheet">
-        <script src="static/js/jquery.min.js"></script>
-        <script src="static/js/bootstrap.min.js"></script>
-        <script src="static/js/webmark.common.js"></script>
+    <title></title>
+    <meta charset="utf-8">
+    <script src="static/js/jquery.min.js"></script>
+    <link href="static/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <script src="static/bootstrap/bootstrap-treeview.min.js"></script>
+    <script src="static/bootstrap/bootstrap.min.js"></script>
+    <script src="static/js/webmark.common.js"></script>
 
-        <script src="static/js/marked.min.js"></script>
-        <link rel="stylesheet" href="static/css/default.min.css">
-        <script src="static/js/highlight.min.js"></script>
-        <script src="static/js/bootstrap-treeview.min.js"></script>
-        <style>
-                [class*="col-"] {
-                        padding-right: 1px;
-                        padding-left: 1px;
-                }
-        </style>
+    <script src="static/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="static/highlight/default.min.css">
+    <script src="static/highlight/highlight.min.js"></script>
+
+    <link href="static/loweditor/loweditor.css" rel="stylesheet">
+    <script src="static/loweditor/loweditor.js"></script>
+
+    <script src="static/turndown/turndown.js"></script>
+    <script src="static/turndown/turndown-plugin-gfm.js"></script>
+    <style>
+        [class*="col-"] {
+            padding-right: 1px;
+            padding-left: 1px;
+        }
+    </style>
 </head>
 
 <body>
-        <div class="container-fluid">
-                <div class="row">
-                        <nav class="navbar navbar-default" role="navigation">
-                                <div class="container-fluid">
-                                        <div class="navbar-header">
-                                                <a class="navbar-brand" href="#" id="s-group"></a>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="navbar navbar-default" role="navigation">
+                <div class="container-fluid">
+                    <div class="navbar-header">
+                        <a class="navbar-brand" href="#" id="s-group"></a>
+                    </div>
+                    <div class="navbar-form navbar-left">
+                        <div class="form-group">
+                            <input id="keyword" type="text" class="form-control" placeholder="关键词">
+                        </div>
+                        <button id="search" class="btn btn-default">搜索</button>
+                    </div>
+                    <div id="myexample">
+                        <ul class="nav navbar-nav">
+                            <li><a href="#" data-toggle="modal" data-target="#new-markdown-modal"><span
+                                        class="glyphicon glyphicon-floppy-save">
+                                        新建文档</span></a></li>
+                            <div class="modal fade" id="new-markdown-modal" tabindex="-1" role="dialog"
+                                aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                                                &times;
+                                            </button>
+                                            <h4 class="modal-title" id="myModalLabel">
+                                                新建文档
+                                            </h4>
                                         </div>
-                                        <div class="navbar-form navbar-left">
+                                        <div class="modal-body">
+                                            <div id="new-group" role="form" action="/new-group" method="post">
                                                 <div class="form-group">
-                                                        <input id="keyword" type="text" class="form-control"
-                                                                placeholder="关键词">
+                                                    <input type="text" class="form-control" id="nmdtitle"
+                                                        placeholder="文档标题">
                                                 </div>
-                                                <button id="search" class="btn btn-default">搜索</button>
+                                            </div>
                                         </div>
-                                        <div id="myexample">
-                                                <ul class="nav navbar-nav">
-                                                        <li><a href="#" data-toggle="modal"
-                                                                        data-target="#new-markdown-modal"><span
-                                                                                class="glyphicon glyphicon-floppy-save">
-                                                                                新建文档</span></a></li>
-                                                        <div class="modal fade" id="new-markdown-modal" tabindex="-1"
-                                                                role="dialog" aria-hidden="true">
-                                                                <div class="modal-dialog">
-                                                                        <div class="modal-content">
-                                                                                <div class="modal-header">
-                                                                                        <button type="button"
-                                                                                                class="close"
-                                                                                                data-dismiss="modal"
-                                                                                                aria-hidden="true">
-                                                                                                &times;
-                                                                                        </button>
-                                                                                        <h4 class="modal-title"
-                                                                                                id="myModalLabel">
-                                                                                                新建文档
-                                                                                        </h4>
-                                                                                </div>
-                                                                                <div class="modal-body">
-                                                                                        <div id="new-group" role="form"
-                                                                                                action="/new-group"
-                                                                                                method="post">
-                                                                                                <div class="form-group">
-                                                                                                        <input type="text"
-                                                                                                                class="form-control"
-                                                                                                                id="nmdtitle"
-                                                                                                                placeholder="文档标题">
-                                                                                                </div>
-                                                                                        </div>
-                                                                                </div>
-                                                                                <div class="modal-footer">
-                                                                                        <button type="button"
-                                                                                                class="btn btn-default"
-                                                                                                data-dismiss="modal">关闭
-                                                                                        </button>
-                                                                                        <button type="button"
-                                                                                                class="btn btn-primary"
-                                                                                                id="new-markdown-submit">
-                                                                                                保存
-                                                                                        </button>
-                                                                                </div>
-                                                                        </div><!-- /.modal-content -->
-                                                                </div><!-- /.modal -->
-                                                        </div>
-                                                        <li><a href="#" id="export-group"><span
-                                                                                class="glyphicon glyphicon-save">
-                                                                                导出分组</span></a></li>
-                                                        <li><a href="#" id="del-group"><span
-                                                                                class="glyphicon glyphicon-trash">
-                                                                                删除分组</span></a></li>
-                                                </ul>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-default" data-dismiss="modal">关闭
+                                            </button>
+                                            <button type="button" class="btn btn-primary" id="new-markdown-submit">
+                                                保存
+                                            </button>
                                         </div>
-                                        <ul class="nav navbar-nav navbar-right">
-                                                <li><a href="#" id="home"><span
-                                                                        class="glyphicon glyphicon-home"></span></a>
-                                                </li>
-                                        </ul>
-                                </div>
-                        </nav>
+                                    </div><!-- /.modal-content -->
+                                </div><!-- /.modal -->
+                            </div>
+                            <li><a href="#" id="export-group"><span class="glyphicon glyphicon-save">
+                                        导出分组</span></a></li>
+                            <li><a href="#" id="del-group"><span class="glyphicon glyphicon-trash">
+                                        删除分组</span></a></li>
+                        </ul>
+                    </div>
+                    <ul class="nav navbar-nav navbar-right">
+                        <li><a href="#" id="home"><span class="glyphicon glyphicon-home"></span></a>
+                        </li>
+                    </ul>
                 </div>
-                <div class="row">
-                        <div class="col-sm-2">
-                                <ul id="s-md-list" class="list-group"></ul>
-                        </div>
-                        <div class="col-sm-10">
-                                <!-- 右边 -->
-                                <div id="right-show" style="display: none;">
-                                        <div class="col-sm-8">
-                                                <div class="btn-group" style="position: fixed;top: 10%;right: 28%;">
-                                                        <button id="edit-btn" type="button"
-                                                                class="btn btn-default">编辑</button>
-                                                        <button id="save-btn" type="button"
-                                                                class="btn btn-primary">保存</button>
-                                                        <button id="export-md-btn" type="button"
-                                                                class="btn btn-default">导出</button>
-                                                        <button id="delete-btn" type="button"
-                                                                class="btn btn-danger">删除</button>
-                                                </div>
-                                                <div id="edit-area" role="form"
-                                                        style="margin-top: 6%; display: none;">
-                                                        <div class="form-group">
-                                                                <div class="col-sm-6">
-                                                                        <textarea id="markdown-input"
-                                                                                placeholder="在这里可以写Markdown，支持文件、图片粘贴"
-                                                                                class="form-control"
-                                                                                style="height: 400px;"></textarea>
-                                                                </div>
-                                                                <div class="col-sm-6" id="markdown-input-show" style="height: 400px;overflow:auto;">
-                                                                </div>
-                                                        </div>
-                                                </div>
-                                                <div id="s-markdown" class="panel panel-primary" style="margin-top: 6%;">
-                                                        <div class="panel-heading">
-                                                                <h3 id="s-title" class="panel-title"></h3>
-                                                        </div>
-                                                        <div class="panel-body">
-                                                                <div id="markdown-output"></div>
-                                                        </div>
-                                                </div>
-                                                <div class="list-group" style="position: fixed;bottom: 0%;right: 28%;">
-                                                        <a id="toup" href="#" class="list-group-item"
-                                                                style="text-align: center; color: blue;"><span
-                                                                        class='glyphicon glyphicon-menu-up'></span></a>
-                                                </div>
-                                        </div>
-                                        <div class="col-sm-4">
-                                                <div id="treeview"
-                                                        style="position: fixed;overflow-y :scroll;height: 75%;"></div>
-                                        </div>
-                                        <!-- 其他组件 -->
-                                        <div id="info"
-                                                style="width: 15%;float: right;z-index: 9999;position: relative;"></div>
-                                </div>
-                        </div>
-                </div>
+            </nav>
         </div>
+        <div class="row">
+            <div class="col-sm-2">
+                <ul id="s-md-list" class="list-group"></ul>
+            </div>
+            <div class="col-sm-10">
+                <!-- 右边 -->
+                <div id="right-show" style="display: none;">
+                    <div class="col-sm-8">
+                        <div class="btn-group" style="position: fixed;top: 10%;right: 28%;">
+                            <button id="edit-btn" type="button" class="btn btn-default">编辑</button>
+                            <button id="save-btn" type="button" class="btn btn-primary">保存</button>
+                            <button id="export-md-btn" type="button" class="btn btn-default">导出</button>
+                            <button id="delete-btn" type="button" class="btn btn-danger">删除</button>
+                        </div>
+                        <div id="s-markdown" class="panel panel-primary" style="margin-top: 6%;">
+                            <div class="panel-heading">
+                                <h3 id="s-title" class="panel-title"></h3>
+                            </div>
+                            <div class="panel-body">
+                                <div id="markdown-output"></div>
+                            </div>
+                        </div>
+                        <div class="list-group" style="position: fixed;bottom: 0%;right: 28%;">
+                            <a id="toup" href="#" class="list-group-item" style="text-align: center; color: blue;"><span
+                                    class='glyphicon glyphicon-menu-up'></span></a>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div id="treeview" style="position: fixed;overflow-y :scroll;height: 75%;"></div>
+                    </div>
+                    <!-- 其他组件 -->
+                    <div id="info" style="width: 15%;float: right;z-index: 9999;position: relative;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 <script>
-        const groupname = getUrlParam('groupname');
-        const ignorebigcss = "ignorebigcss"; // 忽略忽大忽小的css
-        // 图片缓存
-        var imgCache = {};
-        var currentMarkdown = '';
-        const renderer = new marked.Renderer();
-        var abstracts = [];
-        renderer.image = function (href, title, text) {
-                return `<img class="${ignorebigcss}" data-src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;display: none;" alt="${text}">`;
-        };
-        renderer.link = function (href, title, text) {
-                if (href.startsWith(`${currentMarkdown}/`)) {
-                        return `<a target="_blank" href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
-                } else {
-                        return `<a target="_blank" href="${href}">${text}</a>`;
-                }
+    const groupname = getUrlParam('groupname');
+    // 图片缓存
+    var currentMarkdown = '';
+    const renderer = new marked.Renderer();
+    var abstracts = [];
+    renderer.image = function (href, title, text) {
+        if(href.startsWith(`${currentMarkdown}/`)) {
+            return `<img src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;            
+        } else {
+            return `<img src="${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
         }
-        renderer.table = function (header, body) {
-                return `<table class="table table-bordered"><thead>${header}</thead><tbody>${body}</tbody></table>`;
+    };
+    renderer.link = function (href, title, text) {
+        if (href.startsWith(`${currentMarkdown}/`)) {
+            return `<a target="_blank" href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
+        } else {
+            return `<a target="_blank" href="${href}">${text}</a>`;
         }
-        renderer.heading = function (text, level, raw) {
-                var id = `${Math.random()}`;
-                var node = {
-                        "href": `#${id}`,
-                        "text": text,
-                        "level": level
-                };
-                if (abstracts.length == 0) {
-                        abstracts.push(node);
-                } else {
-                        var curs = abstracts;
-                        var t = abstracts[abstracts.length - 1];
-                        while (true) {
-                                if (level > t.level) {
-                                        // 子项
-                                        if (t.nodes == null) {
-                                                t.nodes = [];
-                                                t.nodes.push(node);
-                                                break;
-                                        } else {
-                                                curs = t.nodes;
-                                                t = t.nodes[t.nodes.length - 1];
-                                        }
-                                } else {
-                                        // 平级，添加到当前平级列表
-                                        curs.push(node);
-                                        break;
-                                }
-                        }
-                }
-                return `<h${level} class="${ignorebigcss}" style="display: none;" id="${id}">${text}</h${level}>`;
+    }
+    renderer.table = function (header, body) {
+        return `<table class="table table-bordered"><thead>${header}</thead><tbody>${body}</tbody></table>`;
+    }
+    renderer.heading = function (text, level, raw) {
+        var id = `${Math.random()}`;
+        var node = {
+            "href": `#${id}`,
+            "text": text,
+            "level": level
         };
-        marked.setOptions({
-                renderer: renderer,
-                gfm: true,
-                breaks: true,
-                highlight: (code) => {
-                        return hljs.highlightAuto(code).value;
+        if (abstracts.length == 0) {
+            abstracts.push(node);
+        } else {
+            var curs = abstracts;
+            var t = abstracts[abstracts.length - 1];
+            while (true) {
+                if (level > t.level) {
+                    // 子项
+                    if (t.nodes == null) {
+                        t.nodes = [];
+                        t.nodes.push(node);
+                        break;
+                    } else {
+                        curs = t.nodes;
+                        t = t.nodes[t.nodes.length - 1];
+                    }
+                } else {
+                    // 平级，添加到当前平级列表
+                    curs.push(node);
+                    break;
                 }
-        });
+            }
+        }
+        return `<h${level} id="${id}">${text}</h${level}>`;
+    };
+    marked.setOptions({
+        renderer: renderer,
+        gfm: true,
+        breaks: true,
+        highlight: (code) => {
+            return hljs.highlightAuto(code).value;
+        }
+    });
 </script>
 <script>
-        const markdownInput = document.getElementById('markdown-input');
-        const markdownOutput = document.getElementById('markdown-output');
-        const markdownPreview = document.getElementById('markdown-input-show');
-        const initmd =
-                `## 操作介绍
-+ Ctrl+C保存
-+ 图片/文件支持复制粘贴、拖拽`
-        function _draw (ele) {
-                abstracts = [];
-                const html = marked.parse(markdownInput.value);
-                ele.innerHTML = html;
-                $('#treeview').html('');
-                $('#treeview').treeview({
-                        backColor: "#FFFFFF",
-                        color: "#428bca",
-                        enableLinks: true,
-                        showBorder: false,
-                        highlightSelected: false,
-                        levels: 5,
-                        data: abstracts
-                });
-                load_images();
+    // editor配置
+    var editor = LowEditor("markdown-output", {
+        file: {
+            prefix: `markdown/${getUsername()}/${groupname}/`,
+            upload: `/upload/${groupname}/${currentMarkdown}`
+        },
+        code_onload: (code) => {
+            hljs.highlightElement(code);
+        },
+        onsave: () => {
+            savemd();
         }
-        function draw() {
-                _draw(markdownOutput);
-        };
-        function drawPreview() {
-                _draw(markdownPreview);
-                pvshowIgnorebigcss();
-        }
-        function load_images() {
-                var imgs=$('img');
-                for (let index = 0; index < imgs.length; index++) {
-                        const ele = imgs[index];
-                        if(ele.hasAttribute('data-src')) {
-                                _load_image(ele,ele.getAttribute('data-src'));
-                        }
-                }
-        }
-        function _load_image(ele, url) {
-                if (imgCache.hasOwnProperty(url)) {
-                        _loadImage_file(ele, imgCache[url]);
-                } else {
-                        var xhr = new XMLHttpRequest();
-                        xhr.onload = function () {
-                                if (xhr.status == 200) {
-                                        var binStr = this.responseText;
-                                        var arr = new Uint8Array(binStr.length);
-                                        for (var i = 0, l = binStr.length; i < l; i++) {
-                                                arr[i] = binStr.charCodeAt(i);
-                                        }
-                                        var blob = new Blob([arr.buffer], { type: 'image/png' })
-                                        imgCache[url] = blob;
-                                        _loadImage_file(ele, blob);
-                                } else {
-                                        console.log('error');
-                                }
-                        }
-                        xhr.open('get', url, true);
-                        //兼容老浏览器。必须，以文本格式接受，字符集自定义
-                        xhr.overrideMimeType('text/plain;charset=x-user-defined');
-                        xhr.send(null);
-                }
-
-        }
-        function _loadImage_file(ele, blob) {
-                var fr = new FileReader();
-                fr.readAsDataURL(blob);
-                fr.onload = function (e) {
-                        ele.src = e.target.result;
-                }
-        }
-        $('title').html(groupname);
-        $('#s-group').html(groupname);
-        var mds = [];
-        function show_mds() {
-                var keyword = $("#keyword").val();
-                if (keyword == null) {
-                        keyword = ''
-                }
-                keyword = keyword.toLowerCase();
-                // 清空列表
-                var gps = $("[data-gp='md']");
-                for (let index = 0; index < gps.length; index++) {
-                        const e = gps[index];
-                        e.remove();
-                }
-                if (mds) {
-                        for (let index = 0; index < mds.length; index++) {
-                                const e = mds[index];
-                                if (e.toLowerCase().indexOf(keyword) != -1) {
-                                        $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
-                                }
-                        }
-                }
-        }
-        $.ajax({
-                url: "/markdown-list?group=" + groupname,
-                dataType: "json",
-                success: function (data) {
-                        mds = data["markdowns"];
-                        show_mds();
-                }
+    });
+</script>
+<script>
+    // html转markdown配置
+    var turndownService = new TurndownService({
+        headingStyle: "atx",
+        emDelimiter: "*",
+        preformattedCode: true,
+        codeBlockStyle: "fenced"
+    });
+    turndownService.use(turndownPluginGfm.gfm);
+</script>
+<script>
+    const initmd =
+        `## 操作介绍
+* Ctrl+C保存
+* 图片/文件支持复制粘贴、拖拽`
+    function draw(markdown) {
+        abstracts = [];
+        const html = marked.parse(markdown);
+        editor.setHtml(html);
+        $('#treeview').html('');
+        $('#treeview').treeview({
+            backColor: "#FFFFFF",
+            color: "#428bca",
+            enableLinks: true,
+            showBorder: false,
+            highlightSelected: false,
+            levels: 5,
+            data: abstracts
         });
-        $("#search").click(() => {
-                // 搜索
-                show_mds();
-        });
-        $("#keyword").keydown((e) => {
-                if (event.keyCode == 13) {
-                        // 回车查询
-                        show_mds();
-                }
-        });
-        function openMarkdown(mdname) {
-                currentMarkdown = mdname;
-                $("#s-title").html(currentMarkdown);
-                $("#right-show").show();
-                var ret = $.ajax({ url: `/markdown/${getUsername()}/${groupname}/${mdname}.md`, cache: false, async: false });
-                markdownInput.value = ret.responseText;
-                draw();
-                showIgnorebigcss();
+    }
+    $('title').html(groupname);
+    $('#s-group').html(groupname);
+    var mds = [];
+    function show_mds() {
+        var keyword = $("#keyword").val();
+        if (keyword == null) {
+            keyword = ''
         }
-        function markdownSave(mdname, content) {
-                var xhr = new XMLHttpRequest();
-                // 上传完成
-                xhr.addEventListener('load', (e) => {
-                        // 刷新页面
-                        location.reload();
-                });
-                // 发送请求
-                xhr.open('POST', `/new-markdown/${groupname}/${mdname}`);
-                xhr.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
-                xhr.send(content);
+        keyword = keyword.toLowerCase();
+        // 清空列表
+        var gps = $("[data-gp='md']");
+        for (let index = 0; index < gps.length; index++) {
+            const e = gps[index];
+            e.remove();
         }
-        $("#new-markdown-submit").click(() => {
-                // 新建文档保存
-                markdownSave($("#nmdtitle").val(), initmd);
-        });
-        $("#nmdtitle").keydown((e) => {
-                if (event.keyCode == 13) {
-                        markdownSave($("#nmdtitle").val(), initmd);
+        if (mds) {
+            for (let index = 0; index < mds.length; index++) {
+                const e = mds[index];
+                if (e.toLowerCase().indexOf(keyword) != -1) {
+                    $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
                 }
-        });
-        // 显示忽大忽小元素
-        function showIgnorebigcss() {
-                var gcss = markdownOutput.getElementsByClassName(ignorebigcss);
-                for (var index = 0; index < gcss.length; index++) {
-                        var g = gcss[index];
-                        $(g).show();
-                }
+            }
         }
-        // 显示忽大忽小元素（预览）
-        function pvshowIgnorebigcss() {
-                var gcss = markdownPreview.getElementsByClassName(ignorebigcss);
-                for (var index = 0; index < gcss.length; index++) {
-                        var g = gcss[index];
-                        $(g).show();
-                }
+    }
+    $.ajax({
+        url: "/markdown-list?group=" + groupname,
+        dataType: "json",
+        success: function (data) {
+            mds = data["markdowns"];
+            show_mds();
         }
-        // 隐藏忽大忽小元素
-        function hideIgnorebigcss() {
-                var gcss = markdownOutput.getElementsByClassName(ignorebigcss);
-                for (var index = 0; index < gcss.length; index++) {
-                        var g = gcss[index];
-                        $(g).hide();
-                }
+    });
+    $("#search").click(() => {
+        // 搜索
+        show_mds();
+    });
+    $("#keyword").keydown((e) => {
+        if (event.keyCode == 13) {
+            // 回车查询
+            show_mds();
         }
-        $("#edit-btn").click(() => {
-                var t = $("#edit-btn").text();
-                if (t == '编辑') {
-                        hideIgnorebigcss();
-                        // 计算视距高度比例
-                        var rate = -markdownOutput.getBoundingClientRect().y / markdownOutput.getBoundingClientRect().height;
-                        $("#edit-area").show();
-                        $("#edit-btn").text('预览');
-                        $("#s-markdown").hide();
-                        markdownInput.scrollTop = markdownInput.scrollHeight * rate;
-                        drawPreview();
-                } else {
-                        var rate = markdownInput.scrollTop / markdownInput.scrollHeight;
-                        $("#edit-area").hide();
-                        $("#edit-btn").text('编辑');
-                        $("#s-markdown").show();
-                        draw();
-                        // 先滚动到0
-                        document.documentElement.scrollTop = 0;
-                        var inity = markdownOutput.getBoundingClientRect().y;
-                        document.documentElement.scrollTop = inity + markdownOutput.getBoundingClientRect().height * rate;
-                        // 再显示图片
-                        showIgnorebigcss();
-                }
+    });
+    function openMarkdown(mdname) {
+        currentMarkdown = mdname;
+        $("#s-title").html(currentMarkdown);
+        $("#right-show").show();
+        var ret = $.ajax({ url: `/markdown/${getUsername()}/${groupname}/${mdname}.md`, cache: false, async: false });
+        draw(ret.responseText);
+    }
+    function markdownSave(mdname, content) {
+        var xhr = new XMLHttpRequest();
+        // 上传完成
+        xhr.addEventListener('load', (e) => {
+            // 刷新页面
+            location.reload();
         });
-        $("#export-group").click(() => {
-                window.open(`/export/${groupname}`);
-        });
-        $("#export-md-btn").click(() => {
-                window.open(`/export/${groupname}/${currentMarkdown}`);
-        });
-        function savemd() {
-                var text = markdownInput.value;
-                var xhr = new XMLHttpRequest();
-                xhr.addEventListener('load', (e) => {
-                        // 显示成功提示
-                        var dom = $('<div class="alert alert-success">保存成功！</div>');
-                        $("#info").append(dom);
-                        window.setTimeout(function () { dom.remove(); }, 2000);
-                });
-                xhr.open("POST", `/new-markdown/${groupname}/${currentMarkdown}`);
-                xhr.setRequestHeader("Content-Type", "text/plain");
-                xhr.send(text);
+        // 发送请求
+        xhr.open('POST', `/new-markdown/${groupname}/${mdname}`);
+        xhr.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+        xhr.send(content);
+    }
+    $("#new-markdown-submit").click(() => {
+        // 新建文档保存
+        markdownSave($("#nmdtitle").val(), initmd);
+    });
+    $("#nmdtitle").keydown((e) => {
+        if (event.keyCode == 13) {
+            markdownSave($("#nmdtitle").val(), initmd);
         }
-        $("#save-btn").click(() => {
-                savemd();
+    });
+    $("#edit-btn").click(() => {
+        var t = $("#edit-btn").text();
+        if (t == '编辑') {
+            $("#edit-btn").text('预览');
+            editor.setEditable(true);
+        } else {
+            $("#edit-btn").text('编辑');
+            editor.setEditable(false);
+            draw(turndownService.turndown(editor.getHtml()));
+        }
+    });
+    $("#export-group").click(() => {
+        window.open(`/export/${groupname}`);
+    });
+    $("#export-md-btn").click(() => {
+        window.open(`/export/${groupname}/${currentMarkdown}`);
+    });
+    function savemd() {
+        var xhr = new XMLHttpRequest();
+        xhr.addEventListener('load', (e) => {
+            // 显示成功提示
+            var dom = $('<div class="alert alert-success">保存成功！</div>');
+            $("#info").append(dom);
+            window.setTimeout(function () { dom.remove(); }, 2000);
         });
-        $("#delete-btn").click(() => {
-                if (window.confirm("确认删除吗？")) {
-                        var xhr = new XMLHttpRequest();
-                        xhr.open("DELETE", `/del-markdown/${groupname}/${currentMarkdown}`);
-                        xhr.addEventListener('load', (e) => {
-                                location.reload();
-                        });
-                        xhr.send();
-                }
-        });
-        $("#del-group").click(() => {
-                if (window.confirm("确认删除吗？")) {
-                        var xhr = new XMLHttpRequest();
-                        xhr.open("DELETE", `/del-group/${groupname}`);
-                        xhr.addEventListener('load', (e) => {
-                                location.href = "/user_main.html";
-                        });
-                        xhr.send();
-                }
-        });
-        $("#home").click(() => {
+        xhr.open("POST", `/new-markdown/${groupname}/${currentMarkdown}`);
+        xhr.setRequestHeader("Content-Type", "text/plain");
+        xhr.send(turndownService.turndown(editor.getHtml()));
+    }
+    $("#save-btn").click(() => {
+        savemd();
+    });
+    $("#delete-btn").click(() => {
+        if (window.confirm("确认删除吗？")) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("DELETE", `/del-markdown/${groupname}/${currentMarkdown}`);
+            xhr.addEventListener('load', (e) => {
+                location.reload();
+            });
+            xhr.send();
+        }
+    });
+    $("#del-group").click(() => {
+        if (window.confirm("确认删除吗？")) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("DELETE", `/del-group/${groupname}`);
+            xhr.addEventListener('load', (e) => {
                 location.href = "/user_main.html";
-        });
-        // ctrl+s保存
-        markdownInput.addEventListener('keydown', (event) => {
-                if (event.ctrlKey && event.key === 's') {
-                        event.preventDefault();
-                        savemd();
-                }else if(event.key === 'Enter') {
-                        // 回车预览
-                        drawPreview();
-                }
-        });
-        // 滚动
-        markdownInput.addEventListener('scroll', (event) => {
-                // 滚动比例
-                var rate=markdownInput.getBoundingClientRect().height/markdownPreview.getBoundingClientRect().height;
-                markdownPreview.scrollTop = markdownInput.scrollTop/rate;
-        });
-
-        // 文件上传
-        function upload(files) {
-                // 创建FormData对象，用于将文件上传到服务器
-                var formData = new FormData();
-                var image_names = [];
-                var file_names = [];
-                // 将拖拽的文件添加到FormData对象中
-                for (var i = 0; i < files.length; i++) {
-                        var name = `${Date.now()}_${files[i].name}`;
-                        formData.append('file', files[i], name);
-                        if (files[i].type.indexOf('image') !== -1) {
-                                image_names.push(name);
-                        } else {
-                                file_names.push(name);
-                        }
-                }
-                // 创建XMLHttpRequest对象，用于发送请求
-                var xhr = new XMLHttpRequest();
-                // 监听上传进度
-                xhr.upload.addEventListener('progress', (e) => {
-                        if (e.lengthComputable) {
-                                var percent = (e.loaded / e.total) * 100;
-                                console.log('上传进度：' + percent + '%');
-                        }
-                });
-                // 监听上传完成事件
-                xhr.addEventListener('load', (e) => {
-                        console.log('上传完成');
-                        for (var i = 0; i < image_names.length; i++) {
-                                var textToInsert = `![${image_names[i]}](${currentMarkdown}/${image_names[i]})`;
-                                // 获取光标位置
-                                const startPos = markdownInput.selectionStart;
-                                const endPos = markdownInput.selectionEnd;
-                                markdownInput.value = markdownInput.value.substring(0, startPos) + textToInsert + markdownInput.value.substring(endPos, markdownInput.value.length);
-                                // 更新光标位置
-                                markdownInput.selectionStart = startPos + textToInsert.length;
-                                markdownInput.selectionEnd = startPos + textToInsert.length;
-                        }
-                        for (var i = 0; i < file_names.length; i++) {
-                                var textToInsert = `[${file_names[i]}](${currentMarkdown}/${file_names[i]})`;
-                                // 获取光标位置
-                                const startPos = markdownInput.selectionStart;
-                                const endPos = markdownInput.selectionEnd;
-                                markdownInput.value = markdownInput.value.substring(0, startPos) + textToInsert + markdownInput.value.substring(endPos, markdownInput.value.length);
-                                // 更新光标位置
-                                markdownInput.selectionStart = startPos + textToInsert.length;
-                                markdownInput.selectionEnd = startPos + textToInsert.length;
-                        }
-                });
-                // 监听上传出错事件
-                xhr.addEventListener('error', (e) => {
-                        console.log('上传出错');
-                });
-                // 监听上传取消事件
-                xhr.addEventListener('abort', (e) => {
-                        console.log('上传取消');
-                });
-                // 发送请求
-                xhr.open('POST', `/upload/${groupname}/${currentMarkdown}`);
-                xhr.send(formData);
-        };
-        // 粘贴文件、截图等
-        markdownInput.addEventListener('paste', (event) => {
-                const clipboardData = event.clipboardData;
-                if (clipboardData.types.includes('Files')) {
-                        var files = clipboardData.files;
-                        upload(files);
-                        drawPreview();
-                }
-        });
-        markdownInput.addEventListener('input', () => {
-                // 输入时回调，这里先不渲染markdown，不然图片资源会反复获取
-        });
-        markdownInput.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-        });
-        markdownInput.addEventListener('drop', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                var files = e.dataTransfer.files;
-                upload(files);
-        });
-        $("#toup").click(() => {
-                document.documentElement.scrollTop = 0;
-        });
+            });
+            xhr.send();
+        }
+    });
+    $("#home").click(() => {
+        location.href = "/user_main.html";
+    });
+    $("#toup").click(() => {
+        document.documentElement.scrollTop = 0;
+    });
 </script>
 
 </html>
