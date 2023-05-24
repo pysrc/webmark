@@ -214,6 +214,9 @@
         codeBlockStyle: "fenced"
     });
     turndownService.use(turndownPluginGfm.gfm);
+    function toMarkdown() {
+        return turndownService.turndown(editor.getHtml());
+    }
 </script>
 <script>
     const initmd =
@@ -316,7 +319,7 @@
         } else {
             $("#edit-btn").text('编辑');
             editor.setEditable(false);
-            draw(turndownService.turndown(editor.getHtml()));
+            draw(toMarkdown());
         }
     });
     $("#export-group").click(() => {
@@ -335,7 +338,7 @@
         });
         xhr.open("POST", `/new-markdown/${groupname}/${currentMarkdown}`);
         xhr.setRequestHeader("Content-Type", "text/plain");
-        xhr.send(turndownService.turndown(editor.getHtml()));
+        xhr.send(toMarkdown());
     }
     $("#save-btn").click(() => {
         savemd();
