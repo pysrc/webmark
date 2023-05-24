@@ -134,14 +134,14 @@
     var abstracts = [];
     renderer.image = function (href, title, text) {
         if (href.startsWith(`${currentMarkdown}/`)) {
-            return `<img src="markdown/${getUsername()}/${groupname}/${currentMarkdown}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
+            return `<img src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
         } else {
             return `<img src="${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
         }
     };
     renderer.link = function (href, title, text) {
         if (href.startsWith(`${currentMarkdown}/`)) {
-            return `<a target="_blank" href="markdown/${getUsername()}/${groupname}/${currentMarkdown}/${href}">${text}</a>`;
+            return `<a target="_blank" href="markdown/${getUsername()}/${groupname}/${href}">${text}</a>`;
         } else {
             return `<a target="_blank" href="${href}">${text}</a>`;
         }
@@ -230,7 +230,9 @@
         }
     });
     function toMarkdown() {
-        return turndownService.turndown(editor.getHtml());
+        var md = editor.getHtml();
+        var md = md.replaceAll(`markdown/${getUsername()}/${groupname}/`, '');
+        return turndownService.turndown(md);
     }
 </script>
 <script>
