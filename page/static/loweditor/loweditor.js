@@ -81,7 +81,7 @@ function LowEditor(containerid, options) {
         for (let index = 0; index < pres.length; index++) {
             var pre = pres[index];
             pre.setAttribute("contenteditable", "false");
-            pre.addEventListener("click", preAction(pre));
+            pre.addEventListener("dblclick", preAction(pre));
         }
     }
     var setEditable = function (enable) {

@@ -133,8 +133,8 @@
     const renderer = new marked.Renderer();
     var abstracts = [];
     renderer.image = function (href, title, text) {
-        if(href.startsWith(`${currentMarkdown}/`)) {
-            return `<img src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;            
+        if (href.startsWith(`${currentMarkdown}/`)) {
+            return `<img src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
         } else {
             return `<img src="${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
         }
@@ -214,6 +214,21 @@
         codeBlockStyle: "fenced"
     });
     turndownService.use(turndownPluginGfm.gfm);
+    turndownService.addRule('multiLineTable', {
+        filter: 'table',
+        replacement: function (content) {
+            // 将表格中的多行转换为Markdown表格
+            let eles = content.split('|');
+            for (let index = 0; index < eles.length; index++) {
+                var e = eles[index];
+                if(e != '\n') {
+                    e = e.replaceAll('\n', '<br>');
+                    eles[index] = e;
+                }
+            }
+            return eles.join("|");
+        }
+    });
     function toMarkdown() {
         return turndownService.turndown(editor.getHtml());
     }
