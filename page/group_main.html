@@ -283,6 +283,7 @@
         $("#right-show").show();
         var ret = $.ajax({ url: `/markdown/${getUsername()}/${groupname}/${mdname}.md`, cache: false, async: false });
         draw(ret.responseText);
+        editor.setEditable(false);
     }
     function markdownSave(mdname, content) {
         var xhr = new XMLHttpRequest();

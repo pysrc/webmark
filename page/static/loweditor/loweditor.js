@@ -5,6 +5,7 @@ const _low_html = `
 <button id="loweditor-ap-table" class="loweditor-tool-item"><b>插入表格&gt;</b></button>
 <input id="loweditor-table-rows" class="loweditor-tool-input-item" placeholder="行">
 <input id="loweditor-table-cols" class="loweditor-tool-input-item" placeholder="列">
+<button id="loweditor-insert-newline" class="loweditor-tool-item"><b>插入新行</b></button>
 </div>
 <div id="loweditor-editor" class="loweditor-editor"></div>
 
@@ -68,12 +69,29 @@ function LowEditor(containerid, options) {
             tbody.removeEventListener("contextmenu", menuEvent);
         }
     }
+    var preAction = function(pre) {
+        return function() {
+            originNode = pre;
+            $$("loweditor-code-input").value = pre.textContent;
+            showModal();
+        }
+    }
+    var disablePre = function() {
+        var pres = editor.querySelectorAll('pre');
+        for (let index = 0; index < pres.length; index++) {
+            var pre = pres[index];
+            pre.setAttribute("contenteditable", "false");
+            pre.addEventListener("click", preAction(pre));
+        }
+    }
     var setEditable = function (enable) {
         editor.setAttribute("contenteditable", enable);
         if(enable) {
             $$("loweditor-toolbar").style.display=null;
             // 表格允许编辑
             enableMenu();
+            // 禁止代码直接编辑
+            disablePre();
         } else {
             $$("loweditor-toolbar").style.display='none';
             // 表格不许编辑
@@ -324,6 +342,26 @@ function LowEditor(containerid, options) {
         nrange.setEnd(ol, 1);
         window.getSelection().addRange(nrange);
     }
+    function handleRef() {
+        var selection = window.getSelection();
+        var anchorNode = selection.anchorNode;
+        var text = anchorNode.textContent;
+        text = text.replace(/>[ |\u00a0]/, '');
+        var parent = anchorNode.parentNode;
+        parent.removeChild(anchorNode);
+        var blockquote = $c('blockquote');
+        var p = $c('p');
+        p.innerText = text + "\n";
+        blockquote.appendChild(p);
+        parent.appendChild(blockquote);
+        blockquote.after($c("br"));
+        // 重新设置光标位置
+        selection.removeAllRanges();
+        let nrange = new Range();
+        nrange.setStart(blockquote, 1);
+        nrange.setEnd(blockquote, 1);
+        window.getSelection().addRange(nrange);
+    }
     function handleTable() {
         var rows = $$("loweditor-table-rows").value;
         var cols = $$("loweditor-table-cols").value;
@@ -428,6 +466,8 @@ function LowEditor(containerid, options) {
             handleList();
         } else if (text.match(/\d+\.[ |\u00a0]/)) {
             handleSortedList();
+        } else if(text.match(/>[ |\u00a0]/)) {
+            handleRef();
         }
     });
     editor.addEventListener('keydown', (e) => {
@@ -445,6 +485,7 @@ function LowEditor(containerid, options) {
                 e.preventDefault();
                 e.stopPropagation();
                 originNode = anchorNode;
+                $$("loweditor-code-input").value = '';
                 showModal();
             }
         }
@@ -458,6 +499,9 @@ function LowEditor(containerid, options) {
     $$("loweditor-ap-table").addEventListener("click", () => {
         handleTable();
     });
+    $$("loweditor-insert-newline").addEventListener("click", () => {
+        editor.appendChild($c("br"));
+    });
     // 设置代码插入
     var insertCodeBtn = $$("loweditor-insert-code-btn");
     var closeBtns = document.querySelectorAll("#loweditor-code-modal .loweditor-close");
@@ -466,9 +510,20 @@ function LowEditor(containerid, options) {
         hideModal();
         // 原光标处插入代码
         if (originNode) {
-            var lang = originNode.textContent.replaceAll("```", "");
+            var lang = "text";
+            if(originNode.textContent.startsWith("```")) {
+                lang = originNode.textContent.replaceAll("```", "");
+            } else {
+                var cl = originNode.children[0].classList;
+                for (let index = 0; index < cl.length; index++) {
+                    const e = cl[index];
+                    if(e.startsWith('language-')) {
+                        lang = e.replace('language-', '');
+                        break;
+                    }
+                }
+            }
             var pre = $c("pre");
-            pre.setAttribute("contenteditable", "false");
             var code = $c("code");
             if(lang) {
                 code.setAttribute('class', `language-${lang}`);
@@ -478,6 +533,7 @@ function LowEditor(containerid, options) {
             originNode.after(pre);
             pre.after($c("br"));
             originNode.remove();
+            disablePre();
             // 清理
             originNode = null;
             $$("loweditor-code-input").value = '';
