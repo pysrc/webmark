@@ -420,10 +420,10 @@ function LowEditor(containerid, options) {
         xhr.addEventListener('load', (e) => {
             console.log('上传完成');
             for (var i = 0; i < image_names.length; i++) {
-                insertImage(`${options.file.prefix}${image_names[i]}`);
+                insertImage(`${options.file.prefix()}${image_names[i]}`);
             }
             for (var i = 0; i < file_names.length; i++) {
-                insertUrl(`${options.file.prefix}${file_names[i]}`, file_names[i]);
+                insertUrl(`${options.file.prefix()}${file_names[i]}`, file_names[i]);
             }
         });
         // 监听上传出错事件
@@ -435,7 +435,7 @@ function LowEditor(containerid, options) {
             console.log('上传取消');
         });
         // 发送请求
-        xhr.open('POST', `${options.file.upload}`);
+        xhr.open('POST', `${options.file.upload()}`);
         xhr.send(formData);
     };
     if (options.file) {
