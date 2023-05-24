@@ -563,6 +563,9 @@ function LowEditor(containerid, options) {
         setHtml: function (html) {
             this.editor.innerHTML = html;
         },
-        setEditable
+        setEditable,
+        scrollTop: function(pos) {
+            this.editor.scrollTop=pos;
+        }
     };
 }

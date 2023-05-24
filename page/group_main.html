@@ -219,7 +219,8 @@
     const initmd =
         `## 操作介绍
 * Ctrl+C保存
-* 图片/文件支持复制粘贴、拖拽`
+* 图片/文件支持复制粘贴、拖拽
+* 引用换行请使用Shift+回车`
     function draw(markdown) {
         abstracts = [];
         const html = marked.parse(markdown);
@@ -362,7 +363,7 @@
         location.href = "/user_main.html";
     });
     $("#toup").click(() => {
-        document.documentElement.scrollTop = 0;
+        editor.scrollTop(0);
     });
 </script>
 
