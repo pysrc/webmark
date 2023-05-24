@@ -282,6 +282,7 @@
         currentMarkdown = mdname;
         $("#s-title").html(currentMarkdown);
         $("#right-show").show();
+        $("#edit-btn").text('编辑');
         var ret = $.ajax({ url: `/markdown/${getUsername()}/${groupname}/${mdname}.md`, cache: false, async: false });
         draw(ret.responseText);
         editor.setEditable(false);
