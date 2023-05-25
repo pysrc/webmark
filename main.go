@@ -280,7 +280,7 @@ func user_check(name string) {
 
 // 保存缓存
 func cache_save(username string) {
-	byte, _ := json.Marshal(user_map[username])
+	byte, _ := json.MarshalIndent(user_map[username], "", "    ")
 	file, err := os.OpenFile(USERS_DIR+"/"+username+".json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		fmt.Println(err)
@@ -292,7 +292,7 @@ func cache_save(username string) {
 
 // 会话保存
 func session_save(session_id string) {
-	byte, _ := json.Marshal(session_map[session_id])
+	byte, _ := json.MarshalIndent(session_map[session_id], "", "    ")
 	file, err := os.OpenFile(SESSIONS_DIR+"/"+session_id+".json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		fmt.Println(err)
