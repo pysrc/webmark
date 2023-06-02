@@ -294,10 +294,10 @@ function LowEditor(containerid, options) {
         var level = text.match(/#+/)[0].length;
         // 获取父元素
         var parent = anchorNode.parentNode;
-        parent.removeChild(anchorNode);
         var newLineNode = $c(`h${level}`);
         newLineNode.textContent = text.replace(/#+\u00a0|#+ /, '');
-        parent.appendChild(newLineNode);
+        anchorNode.after(newLineNode);
+        anchorNode.remove();
         // 重新设置光标位置
         selection.removeAllRanges();
         let nrange = new Range();
@@ -311,12 +311,12 @@ function LowEditor(containerid, options) {
         var text = anchorNode.textContent;
         text = text.replace(/\*[ |\u00a0]/, '');
         var parent = anchorNode.parentNode;
-        parent.removeChild(anchorNode);
         var ul = $c('ul');
         var li = $c('li');
         li.innerText = text;
         ul.appendChild(li);
-        parent.appendChild(ul);
+        anchorNode.after(ul);
+        anchorNode.remove();
         // 重新设置光标位置
         selection.removeAllRanges();
         let nrange = new Range();
@@ -331,13 +331,13 @@ function LowEditor(containerid, options) {
         var start = text.match(/\d+/)[0];
         text = text.replace(/\d+\.[ |\u00a0]/, '');
         var parent = anchorNode.parentNode;
-        parent.removeChild(anchorNode);
         var ol = $c('ol');
         ol.setAttribute("start", start);
         var li = $c('li');
         li.innerText = text;
         ol.appendChild(li);
-        parent.appendChild(ol);
+        anchorNode.after(ol);
+        anchorNode.remove();
         // 重新设置光标位置
         selection.removeAllRanges();
         let nrange = new Range();
@@ -351,12 +351,12 @@ function LowEditor(containerid, options) {
         var text = anchorNode.textContent;
         text = text.replace(/>[ |\u00a0]/, '');
         var parent = anchorNode.parentNode;
-        parent.removeChild(anchorNode);
         var blockquote = $c('blockquote');
         var p = $c('p');
         p.innerText = text + "\n";
         blockquote.appendChild(p);
-        parent.appendChild(blockquote);
+        anchorNode.after(blockquote);
+        anchorNode.remove();
         blockquote.after($c("br"));
         // 重新设置光标位置
         selection.removeAllRanges();
