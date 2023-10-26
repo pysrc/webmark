@@ -9,22 +9,6 @@ const _low_html = `
 </div>
 <div id="loweditor-editor" class="loweditor-editor"></div>
 
-<div id="loweditor-code-modal" class="loweditor-modal">
-    <div class="loweditor-modal-content">
-        <div class="loweditor-modal-header">
-            <h5 class="loweditor-modal-title">请输入代码</h5>
-            <span class="loweditor-close">&times;</span>
-        </div>
-        <div class="loweditor-modal-body">
-            <textarea id="loweditor-code-input"></textarea>
-        </div>
-        <div class="loweditor-modal-footer">
-            <button class="loweditor-close">取消</button>
-            <button id="loweditor-insert-code-btn">插入</button>
-        </div>
-    </div>
-</div>
-
 <ul id="loweditor-custom-menu" style="position: fixed;">
     <li id="loweditor-rinsert">右边插入1列</li>
     <li id="loweditor-linsert">左边插入1列</li>
@@ -72,22 +56,6 @@ function LowEditor(containerid, options) {
             tbody.removeEventListener("contextmenu", menuEvent);
         }
     }
-    var preAction = function(pre) {
-        return function() {
-            originNode = pre;
-            $$("loweditor-code-input").value = pre.textContent;
-            showModal();
-        }
-    }
-    var disablePre = function() {
-        var pres = editor.querySelectorAll('pre');
-        for (let index = 0; index < pres.length; index++) {
-            var pre = pres[index];
-            // 注释掉这个，不然输入中文出问题
-            // pre.setAttribute("contenteditable", "false");
-            pre.addEventListener("dblclick", preAction(pre));
-        }
-    }
     var setEditable = function (enable) {
         editor.setAttribute("contenteditable", enable);
         if(enable) {
@@ -95,7 +63,7 @@ function LowEditor(containerid, options) {
             // 表格允许编辑
             enableMenu();
             // 禁止代码直接编辑
-            disablePre();
+            // disablePre();
         } else {
             $$("loweditor-toolbar").style.display='none';
             // 表格不许编辑
@@ -293,8 +261,6 @@ function LowEditor(containerid, options) {
         // 获取光标所在元素的内容，判断生成几级标题
         var text = anchorNode.textContent;
         var level = text.match(/#+/)[0].length;
-        // 获取父元素
-        var parent = anchorNode.parentNode;
         var newLineNode = $c(`h${level}`);
         newLineNode.textContent = text.replace(/#+\u00a0|#+ /, '');
         anchorNode.after(newLineNode);
@@ -477,6 +443,15 @@ function LowEditor(containerid, options) {
             handleRef();
         }
     });
+    // 将光标设置在某个元素后面
+    function setCursorAfterElement(targetElement) {
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.setStartAfter(targetElement);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
     editor.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 's') {
             if(options.onsave) {
@@ -492,8 +467,41 @@ function LowEditor(containerid, options) {
                 e.preventDefault();
                 e.stopPropagation();
                 originNode = anchorNode;
-                $$("loweditor-code-input").value = '';
-                showModal();
+                if (originNode) {
+                    var lang = "text";
+                    if(originNode.textContent.startsWith("```")) {
+                        lang = originNode.textContent.replaceAll("```", "");
+                    } else {
+                        var cl = originNode.children[0].classList;
+                        for (let index = 0; index < cl.length; index++) {
+                            const e = cl[index];
+                            if(e.startsWith('language-')) {
+                                lang = e.replace('language-', '');
+                                break;
+                            }
+                        }
+                    }
+                    var pre = $c("pre");
+                    var code = $c("code");
+                    if(lang) {
+                        code.setAttribute('class', `language-${lang}`);
+                    }
+                    pre.appendChild(code);
+                    originNode.after(pre);
+                    pre.after($c("br"));
+                    originNode.remove();
+                    // 清理
+                    originNode = null;
+                    if(options.code_onload) {
+                        options.code_onload(code);
+                    }
+                }
+            } else if(!e.ctrlKey && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+                editor.appendChild($c("br"));
+                var br = $c("br");
+                editor.appendChild(br);
+                setCursorAfterElement(br);
             }
         }
     });
@@ -509,59 +517,6 @@ function LowEditor(containerid, options) {
     $$("loweditor-insert-newline").addEventListener("click", () => {
         editor.appendChild($c("br"));
     });
-    // 设置代码插入
-    var insertCodeBtn = $$("loweditor-insert-code-btn");
-    var closeBtns = document.querySelectorAll("#loweditor-code-modal .loweditor-close");
-    insertCodeBtn.addEventListener("click", function () {
-        // 隐藏输入框
-        hideModal();
-        // 原光标处插入代码
-        if (originNode) {
-            var lang = "text";
-            if(originNode.textContent.startsWith("```")) {
-                lang = originNode.textContent.replaceAll("```", "");
-            } else {
-                var cl = originNode.children[0].classList;
-                for (let index = 0; index < cl.length; index++) {
-                    const e = cl[index];
-                    if(e.startsWith('language-')) {
-                        lang = e.replace('language-', '');
-                        break;
-                    }
-                }
-            }
-            var pre = $c("pre");
-            var code = $c("code");
-            if(lang) {
-                code.setAttribute('class', `language-${lang}`);
-            }
-            code.textContent = $$("loweditor-code-input").value;
-            pre.appendChild(code);
-            originNode.after(pre);
-            pre.after($c("br"));
-            originNode.remove();
-            disablePre();
-            // 清理
-            originNode = null;
-            $$("loweditor-code-input").value = '';
-            if(options.code_onload) {
-                options.code_onload(code);
-            }
-        }
-    });
-    var showModal = function () {
-        var modal = $$("loweditor-code-modal");
-        modal.style.display = "block";
-        $$("loweditor-code-input").focus();
-    };
-    var hideModal = function () {
-        var modal = $$("loweditor-code-modal");
-        modal.style.display = "none";
-    };
-    for (var i = 0; i < closeBtns.length; i++) {
-        var closeBtn = closeBtns[i];
-        closeBtn.addEventListener("click", hideModal);
-    }
     return {
         editor,
         getHtml: function () {
