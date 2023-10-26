@@ -488,8 +488,10 @@ function LowEditor(containerid, options) {
                     }
                     pre.appendChild(code);
                     originNode.after(pre);
-                    pre.after($c("br"));
+                    var br = $c("br");
+                    code.appendChild(br);
                     originNode.remove();
+                    setCursorAfterElement(br);
                 }
             }
         }
