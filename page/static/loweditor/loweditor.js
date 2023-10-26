@@ -83,7 +83,8 @@ function LowEditor(containerid, options) {
         var pres = editor.querySelectorAll('pre');
         for (let index = 0; index < pres.length; index++) {
             var pre = pres[index];
-            pre.setAttribute("contenteditable", "false");
+            // 注释掉这个，不然输入中文出问题
+            // pre.setAttribute("contenteditable", "false");
             pre.addEventListener("dblclick", preAction(pre));
         }
     }
