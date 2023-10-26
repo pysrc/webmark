@@ -490,18 +490,7 @@ function LowEditor(containerid, options) {
                     originNode.after(pre);
                     pre.after($c("br"));
                     originNode.remove();
-                    // 清理
-                    originNode = null;
-                    if(options.code_onload) {
-                        options.code_onload(code);
-                    }
                 }
-            } else if(!e.ctrlKey && !e.shiftKey && !e.altKey) {
-                e.preventDefault();
-                editor.appendChild($c("br"));
-                var br = $c("br");
-                editor.appendChild(br);
-                setCursorAfterElement(br);
             }
         }
     });
