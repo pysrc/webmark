@@ -431,16 +431,20 @@ function LowEditor(containerid, options) {
     editor.addEventListener('input', (e) => {
         var selection = window.getSelection();
         var anchorNode = selection.anchorNode;
-        var text = anchorNode.textContent;
-        if (text.match(/#+[ |\u00a0]./)) {
-            handleHeader();
-        } else if (text.match(/\*[ |\u00a0]/)) {
-            handleList();
-        } else if (text.match(/\d+\.[ |\u00a0]/)) {
-            handleSortedList();
-        } else if(text.match(/>[ |\u00a0]/)) {
-            handleRef();
+        var p = anchorNode.parentNode; // 父节点如果不是编辑器，则不管
+        if(p && (p.tagName.toLowerCase() === 'div' || p.tagName.toLowerCase() === 'p') && p.parentNode && p.parentNode.id === 'loweditor-editor') {
+            var text = anchorNode.textContent;
+            if (text.match(/#+[ |\u00a0]./)) {
+                handleHeader();
+            } else if (text.match(/\*[ |\u00a0]/)) {
+                handleList();
+            } else if (text.match(/\d+\.[ |\u00a0]/)) {
+                handleSortedList();
+            } else if(text.match(/>[ |\u00a0]/)) {
+                handleRef();
+            }
         }
+
     });
     // 将光标设置在某个元素后面
     function setCursorAfterElement(targetElement) {
