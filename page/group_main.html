@@ -132,6 +132,14 @@
     var currentMarkdown = '';
     const renderer = new marked.Renderer();
     var abstracts = [];
+    renderer.code = function(code, language) {
+        if (language && hljs.getLanguage(language)) {
+            code = hljs.highlight(language, code).value;
+        } else {
+            code = hljs.highlightAuto(code).value;
+        }
+        return '<div><pre><code class="language-' + language + '">' + code + '</code></pre></div>';
+    };
     renderer.image = function (href, title, text) {
         if (href.startsWith(`${currentMarkdown}/`)) {
             return `<img src="markdown/${getUsername()}/${groupname}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;

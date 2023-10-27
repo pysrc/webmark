@@ -297,7 +297,6 @@ function LowEditor(containerid, options) {
         var text = anchorNode.textContent;
         var start = text.match(/\d+/)[0];
         text = text.replace(/\d+\.[ |\u00a0]/, '');
-        var parent = anchorNode.parentNode;
         var ol = $c('ol');
         ol.setAttribute("start", start);
         var li = $c('li');
@@ -486,13 +485,22 @@ function LowEditor(containerid, options) {
                     if(lang) {
                         code.setAttribute('class', `language-${lang}`);
                     }
+                    var div = $c("div");
                     pre.appendChild(code);
-                    originNode.after(pre);
+                    div.appendChild(pre);
+                    originNode.after(div);
                     var br = $c("br");
                     code.appendChild(br);
                     originNode.remove();
                     setCursorAfterElement(br);
                 }
+            } else if(e.ctrlKey) {
+                // ctrl+回车 新行
+                var div = $c("div");
+                var br = $c("br");
+                div.appendChild(br);
+                editor.appendChild(div);
+                setCursorAfterElement(br);
             }
         }
     });
