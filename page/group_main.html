@@ -28,6 +28,33 @@
 </head>
 
 <body>
+    <div class="modal fade" id="mdmodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                        &times;
+                    </button>
+                    <h4 class="modal-title" id="myModalLabel">
+                        Markdown
+                    </h4>
+                </div>
+                <div class="modal-body">
+                    <pre id="mdshow"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭
+                    </button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal -->
+    </div>
+    <script>
+        $('#mdmodal').on('show.bs.modal', function () {
+            // 加载markdown
+            $("#mdshow").html(toMarkdown());
+        });
+    </script>
     <div class="container-fluid">
         <div class="row">
             <nav class="navbar navbar-default" role="navigation">
@@ -98,6 +125,7 @@
                 <div id="right-show" style="display: none;">
                     <div class="col-sm-8">
                         <div class="btn-group" style="position: fixed;top: 10%;right: 28%;">
+                            <button type="button" class="btn btn-default" href="#" data-toggle="modal" data-target="#mdmodal">Markdown</button>
                             <button id="edit-btn" type="button" class="btn btn-default">编辑</button>
                             <button id="save-btn" type="button" class="btn btn-primary">保存</button>
                             <button id="export-md-btn" type="button" class="btn btn-default">导出</button>
