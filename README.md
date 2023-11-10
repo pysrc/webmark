@@ -8,3 +8,9 @@ Markdown 管理软件
 + 图片、文件存储
 + B/S架构
 + 轻量级
+
+## 生成加密密码
+
+```shell
+./webmark.exe -genpass -gen-password mypassword
+```

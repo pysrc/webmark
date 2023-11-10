@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"embed"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,6 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // 数据目录
@@ -84,7 +87,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 			// 用户不存在
 			AuthError(w, r)
 		} else {
-			if usr.Password == r.PostFormValue("password") {
+
+			if Verify(usr.Password, r.PostFormValue("password")) {
 				// 认证通过
 				var session_id = Uuid()
 				// 会话过期时间
@@ -177,9 +181,31 @@ func user_password_update(w http.ResponseWriter, r *http.Request) {
 	}
 	var oldp = r.PostFormValue("old")
 	var newp = r.PostFormValue("new")
-	if user_map[session.Name].Password == oldp {
-		user_map[session.Name].Password = newp
+	if Verify(user_map[session.Name].Password, oldp) {
+		user_map[session.Name].Password = Genpass(newp)
 		cache_save(session.Name)
+		w.Write([]byte("YES"))
+	} else {
+		w.Write([]byte("NO"))
+	}
+}
+
+// 添加用户，仅root账户可以
+// /new_user
+func new_user(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+	if session.Name != "root" {
+		return
+	}
+	if r.Method != "POST" {
+		return
+	}
+	var username = r.PostFormValue("username")
+	var password = r.PostFormValue("password")
+	if nil == AddUser(username, password) {
 		w.Write([]byte("YES"))
 	} else {
 		w.Write([]byte("NO"))
@@ -504,7 +530,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func AuthError(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "index.html", http.StatusSeeOther)
+	http.Redirect(w, r, "/index.html", http.StatusSeeOther)
 }
 
 func Auth(w http.ResponseWriter, r *http.Request) (bool, *UserSession) {
@@ -515,32 +541,36 @@ func Auth(w http.ResponseWriter, r *http.Request) (bool, *UserSession) {
 		return false, nil
 	} else {
 		var session_id = cookie.Value
-		var session = session_map[session_id]
-		// 校验session是否过期
-		if session.Expires < time.Now().Unix() {
-			delete(session_map, session_id)
-			os.Remove(SESSIONS_DIR + "/" + session_id + ".json")
-			return false, nil
-		}
-		if session == nil {
-			// 用户未登录
+		if session, ok := session_map[session_id]; ok {
+			// 校验session是否过期
+			if session.Expires < time.Now().Unix() {
+				delete(session_map, session_id)
+				os.Remove(SESSIONS_DIR + "/" + session_id + ".json")
+				return false, nil
+			}
+			if session == nil {
+				// 用户未登录
+				AuthError(w, r)
+				return false, nil
+			} else {
+				// 用户已登录
+				if strings.HasPrefix(r.URL.Path, "/markdown/") {
+					// 使用markdown下的资源需要判断权限
+					if strings.HasPrefix(r.URL.Path, "/markdown/"+session.Name+"/") {
+						return true, session
+					} else {
+						// 无权限
+						AuthError(w, r)
+						return false, nil
+					}
+				} else {
+					// 其余资源有权限
+					return true, session
+				}
+			}
+		} else {
 			AuthError(w, r)
 			return false, nil
-		} else {
-			// 用户已登录
-			if strings.HasPrefix(r.URL.Path, "markdown/") {
-				// 使用markdown下的资源需要判断权限
-				if strings.HasPrefix(r.URL.Path, "markdown/"+session.Name+"/") {
-					return true, session
-				} else {
-					// 无权限
-					AuthError(w, r)
-					return false, nil
-				}
-			} else {
-				// 其余资源有权限
-				return true, session
-			}
 		}
 
 	}
@@ -550,7 +580,7 @@ func Auth(w http.ResponseWriter, r *http.Request) (bool, *UserSession) {
 func auth_markdown(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if suc, _ := Auth(w, r); suc {
-			next.ServeHTTP(w, r)
+			http.StripPrefix("/markdown", next).ServeHTTP(w, r)
 		}
 	})
 }
@@ -566,6 +596,20 @@ func cache_load(user_file_name string) {
 		panic("json parse error " + user_file_name)
 	}
 	user_map[strings.Split(user_file_name, ".")[0]] = &user_info
+}
+
+func AddUser(name string, password string) error {
+	// 添加用户
+	if _, ok := user_map[name]; !ok {
+		user_map[name] = &UserInfo{
+			Name:     name,
+			Password: Genpass(password),
+		}
+		cache_save(name)
+		return nil
+	}
+	// 用户已经存在
+	return errors.New("user exists")
 }
 
 func init_work() {
@@ -595,13 +639,9 @@ func init_work() {
 	}
 	if len(usefiles) == 0 {
 		// 无任何用户配置，则初始化一个用户
-		user_map["root"] = &UserInfo{
-			Name:     "root",
-			Password: "root",
-		}
+		AddUser("root", "root")
 		fmt.Println("初始化用户名: root")
 		fmt.Println("初始化密码: root")
-		cache_save("root")
 	}
 	for _, file := range files {
 		if !file.IsDir() {
@@ -659,23 +699,53 @@ func Job() {
 	}
 }
 
+func Genpass(passwd string) string {
+	// 生成哈希密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.DefaultCost)
+	if err != nil {
+		return ""
+	}
+	return string(hashedPassword)
+}
+
+func Verify(hashedPassword string, enteredPassword string) bool {
+	// 验证密码
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(enteredPassword))
+	if err == nil {
+		return true
+	} else {
+		return false
+	}
+}
+
 //go:embed page/*
 var staticFiles embed.FS
 
 func main() {
-	var bind string
+	var bind, passwd string
+	var genpass bool
+	flag.BoolVar(&genpass, "genpass", false, "生成hash密码")
+	flag.StringVar(&passwd, "gen-password", "markdown", "需要加密的密码")
 	flag.StringVar(&USERS_DIR, "users", "users", "用户信息存档目录")
 	flag.StringVar(&DATA_DIR, "data", "markdown", "文档存储目录")
 	flag.StringVar(&bind, "bind", "127.0.0.1:11990", "绑定host与端口信息")
 	flag.StringVar(&SESSIONS_DIR, "sessions", "sessions", "会话持久化目录")
 	flag.Parse()
+
+	if genpass {
+		p := Genpass(passwd)
+		fmt.Println(p)
+		return
+	}
+
 	fmt.Println("浏览器地址：http://" + bind)
 	init_work()
 	go Job()
 	webroot, _ := fs.Sub(staticFiles, "page")
 	http.Handle("/", http.StripPrefix("/", http.FileServer(http.FS(webroot))))
 	// http.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("page/"))))
-	http.Handle("/markdown/", http.StripPrefix("/markdown", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/")))))
+	// http.Handle("/markdown/", http.StripPrefix("/markdown", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/")))))
+	http.Handle("/markdown/", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/"))))
 	http.HandleFunc("/upload/", upload)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/logout", logout)
@@ -686,6 +756,7 @@ func main() {
 	http.HandleFunc("/del-group/", del_group)
 	http.HandleFunc("/markdown-list", markdown_list)
 	http.HandleFunc("/user-password-update", user_password_update)
+	http.HandleFunc("/new-user", new_user)
 	http.HandleFunc("/export/", export)
 	server := http.Server{Addr: bind}
 	server.ListenAndServe()
