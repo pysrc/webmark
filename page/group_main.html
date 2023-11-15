@@ -40,21 +40,18 @@
                     </h4>
                 </div>
                 <div class="modal-body">
-                    <pre id="mdshow"></pre>
+                    <textarea id="mdshow" style="width: calc(100% - 10px); min-height: 500px; border: none;"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">关闭
+                    </button>
+                    <button type="button" class="btn btn-primary" id="mdshow-ok">
+                        确定
                     </button>
                 </div>
             </div><!-- /.modal-content -->
         </div><!-- /.modal -->
     </div>
-    <script>
-        $('#mdmodal').on('show.bs.modal', function () {
-            // 加载markdown
-            $("#mdshow").html(toMarkdown());
-        });
-    </script>
     <div class="container-fluid">
         <div class="row">
             <nav class="navbar navbar-default" role="navigation">
@@ -423,6 +420,19 @@
     });
     $("#toup").click(() => {
         editor.scrollTop(0);
+    });
+</script>
+
+<script>
+    $('#mdmodal').on('show.bs.modal', function () {
+        // 加载markdown
+        $("#mdshow").val(toMarkdown());
+    });
+    $("#mdshow-ok").click(() => {
+        // 确认修改markdown
+        var md = $("#mdshow").val();
+        draw(md);
+        $('#mdmodal').modal('hide');
     });
 </script>
 
