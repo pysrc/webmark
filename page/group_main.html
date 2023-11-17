@@ -52,7 +52,7 @@
             </div><!-- /.modal-content -->
         </div><!-- /.modal -->
     </div>
-    <div class="container-fluid">
+    <div id="i-header" class="container-fluid">
         <div class="row">
             <nav class="navbar navbar-default" role="navigation">
                 <div class="container-fluid">
@@ -142,7 +142,7 @@
                         </div>
                     </div>
                     <div class="col-sm-4">
-                        <div id="treeview" style="position: fixed;overflow-y :scroll;height: 75%;"></div>
+                        <div id="treeview"></div>
                     </div>
                     <!-- 其他组件 -->
                     <div id="info" style="width: 15%;float: right;z-index: 9999;position: relative;"></div>
@@ -151,6 +151,18 @@
         </div>
     </div>
 </body>
+<script>
+    // 设置样式
+    $(document).ready(function() {
+        var browserHeight = window.innerHeight || document.documentElement.clientHeight;
+        let _h = browserHeight - $("#i-header")[0].clientHeight - 10;
+        $("#s-md-list").css("max-height", `${_h}px`);
+        $("#s-md-list").css("overflow-y", "auto");
+        $("#treeview").css("max-height", `${_h}px`);
+        $("#treeview").css("overflow-y", "auto");
+    });
+    
+</script>
 <script>
     const groupname = getUrlParam('groupname');
     // 图片缓存
