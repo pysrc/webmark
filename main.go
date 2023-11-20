@@ -744,7 +744,6 @@ func main() {
 	webroot, _ := fs.Sub(staticFiles, "page")
 	http.Handle("/", http.StripPrefix("/", http.FileServer(http.FS(webroot))))
 	// http.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("page/"))))
-	// http.Handle("/markdown/", http.StripPrefix("/markdown", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/")))))
 	http.Handle("/markdown/", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/"))))
 	http.HandleFunc("/upload/", upload)
 	http.HandleFunc("/login", login)

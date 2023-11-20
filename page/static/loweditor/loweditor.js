@@ -1,6 +1,8 @@
 const _low_html = `
 <div id="loweditor-toolbar" style="margin-top: 10px;display: none;">
 <button id="loweditor-ap-strong" class="loweditor-tool-item"><b>B</b></button>
+<button id="loweditor-ap-code" class="loweditor-tool-item"><b>C</b></button>
+<button id="loweditor-ap-del" class="loweditor-tool-item"><b>D</b></button>
 <button id="loweditor-ap-em" class="loweditor-tool-item"><em>I</em></button>
 <button id="loweditor-ap-table" class="loweditor-tool-item"><b>插入表格&gt;</b></button>
 <input id="loweditor-table-rows" class="loweditor-tool-input-item" placeholder="行">
@@ -257,7 +259,6 @@ function LowEditor(containerid, options) {
         // 获取光标
         var selection = window.getSelection();
         var anchorNode = selection.anchorNode;
-        var anchorOffset = selection.anchorOffset;
         // 获取光标所在元素的内容，判断生成几级标题
         var text = anchorNode.textContent;
         var level = text.match(/#+/)[0].length;
@@ -276,8 +277,7 @@ function LowEditor(containerid, options) {
         var selection = window.getSelection();
         var anchorNode = selection.anchorNode;
         var text = anchorNode.textContent;
-        text = text.replace(/\*[ |\u00a0]/, '');
-        var parent = anchorNode.parentNode;
+        text = text.replace(/[\*|\+|\-][ |\u00a0]/, '');
         var ul = $c('ul');
         var li = $c('li');
         li.innerText = text;
@@ -316,7 +316,6 @@ function LowEditor(containerid, options) {
         var anchorNode = selection.anchorNode;
         var text = anchorNode.textContent;
         text = text.replace(/>[ |\u00a0]/, '');
-        var parent = anchorNode.parentNode;
         var blockquote = $c('blockquote');
         var p = $c('p');
         p.innerText = text + "\n";
@@ -428,24 +427,6 @@ function LowEditor(containerid, options) {
             }
         });
     }
-    editor.addEventListener('input', (e) => {
-        var selection = window.getSelection();
-        var anchorNode = selection.anchorNode;
-        var p = anchorNode.parentNode; // 父节点如果不是编辑器，则不管
-        if(p && (p.tagName.toLowerCase() === 'div' || p.tagName.toLowerCase() === 'p') && p.parentNode && p.parentNode.id === 'loweditor-editor') {
-            var text = anchorNode.textContent;
-            if (text.match(/#+[ |\u00a0]./)) {
-                handleHeader();
-            } else if (text.match(/\*[ |\u00a0]/)) {
-                handleList();
-            } else if (text.match(/\d+\.[ |\u00a0]/)) {
-                handleSortedList();
-            } else if(text.match(/>[ |\u00a0]/)) {
-                handleRef();
-            }
-        }
-
-    });
     // 将光标设置在某个元素后面
     function setCursorAfterElement(targetElement) {
         const range = document.createRange();
@@ -498,6 +479,23 @@ function LowEditor(containerid, options) {
                     originNode.remove();
                     setCursorAfterElement(br);
                 }
+            } else if (text.match(/#+[ |\u00a0].*/)) {
+                // 标题
+                handleHeader();
+            } else if (text.match(/[\*|\+|\-][ |\u00a0].*/)) {
+                handleList();
+            } else if (text.match(/\d+\.[ |\u00a0].*/)) {
+                handleSortedList();
+            } else if(text.match(/>[ |\u00a0].*/)) {
+                handleRef();
+            } else if(text.match(/[-|\*|_]{3,}/)) {
+                // originNode = anchorNode;
+                var div = $c("div");
+                var hr = $c("hr");
+                div.appendChild(hr);
+                anchorNode.after(div);
+                anchorNode.remove();
+                setCursorAfterElement(div);
             } else if(e.ctrlKey) {
                 // ctrl+回车 新行
                 var div = $c("div");
@@ -510,6 +508,12 @@ function LowEditor(containerid, options) {
     });
     $$("loweditor-ap-strong").addEventListener("click", () => {
         applyStyle('strong');
+    });
+    $$("loweditor-ap-code").addEventListener("click", () => {
+        applyStyle('code');
+    });
+    $$("loweditor-ap-del").addEventListener("click", () => {
+        applyStyle('del');
     });
     $$("loweditor-ap-em").addEventListener("click", () => {
         applyStyle('em');
