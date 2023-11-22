@@ -3,7 +3,6 @@ package main
 import (
 	"archive/zip"
 	"crypto/rand"
-	"database/sql"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -16,8 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"webmark/search"
 
-	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -607,90 +606,22 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	input.Query = strings.ToLower(input.Query)
-	if !strings.Contains(input.Query, "%") {
-		// 不包含特定搜索
-		input.Query = "%" + input.Query + "%"
+	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, session.Name, input.Group)
+	var baseSearchEngine search.BaseSearchEngine
+	baseSearchEngine.Load(bsefile)
+	// 数据是否创建索引检测
+	if baseSearchEngine.IsEmpty() {
+		MakeGroupIndex(session.Name, input.Group, &baseSearchEngine)
 	}
-	// 判断索引存不存在
-	CheckGroupIndex(session.Name, input.Group)
-	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, session.Name))
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	rows, err := db.Query("SELECT title_name FROM documents WHERE group_name = ? and content like ?", input.Group, input.Query)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	var res = make([]string, 0)
-	for rows.Next() {
-		var title string
-		if err := rows.Scan(&title); err != nil {
-			return
-		}
-		res = append(res, title)
-	}
-	bts, err := json.Marshal(res)
-	if err != nil {
-		return
-	}
+	baseSearchEngine.Save(bsefile)
+	res := baseSearchEngine.Search(input.Query)
 	w.Header().Add("content-type", "application/json")
+	bts, _ := json.Marshal(res)
 	w.Write(bts)
 }
 
-// 检车分组索引是否存在，不存在就创建
-func CheckGroupIndex(user, group string) {
-	// 判断索引存不存在
-	index_file := fmt.Sprintf("%s/%s.db", USERS_DIR, user)
-	_, err := os.Stat(index_file)
-	if os.IsNotExist(err) {
-		// 建立索引
-		MakeGroupIndex(user, group)
-		return
-	}
-	db, err := sql.Open("sqlite3", index_file)
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	// 查询是否存在
-	rows, err := db.Query("select EXISTS (select 1 from documents where group_name = ?) as is_exists", group)
-	if err != nil {
-		return
-	}
-	var count int = 0
-	for rows.Next() {
-		if err := rows.Scan(&count); err != nil {
-			rows.Close()
-			return
-		}
-	}
-	rows.Close()
-	if count == 0 {
-		MakeGroupIndex(user, group)
-	}
-}
-
 // 建组索引
-func MakeGroupIndex(user, group string) {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	// 创建虚表
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS documents (
-			group_name,
-			title_name,
-			content
-		)
-	`)
-	if err != nil {
-		return
-	}
+func MakeGroupIndex(user, group string, baseSearchEngine *search.BaseSearchEngine) {
 	// 列出组内所有的文档
 	files, err := os.ReadDir(fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group))
 	if err != nil {
@@ -709,82 +640,40 @@ func MakeGroupIndex(user, group string) {
 			if err != nil {
 				return
 			}
-			MakeIndex(user, group, strings.Split(file.Name(), ".")[0], string(bt))
 			f.Close()
+			baseSearchEngine.InsertOrUpdate(strings.Split(file.Name(), ".")[0], string(bt))
 		}
 	}
 }
 
 // 建索引&刷新索引
 func MakeIndex(user, group, title, content string) {
-	content = title + content
-	content = strings.ToLower(content)
-	// 判断索引存不存在
-	index_file := fmt.Sprintf("%s/%s.db", USERS_DIR, user)
-	_, err := os.Stat(index_file)
-	if os.IsNotExist(err) {
-		// 建立索引
-		MakeGroupIndex(user, group)
-		return
-	}
-
-	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	// 查询是否存在
-	rows, err := db.Query("SELECT count(1) FROM documents WHERE group_name = ? and title_name = ?", group, title)
-	if err != nil {
-		return
-	}
-	var count int = 0
-	for rows.Next() {
-		if err := rows.Scan(&count); err != nil {
-			rows.Close()
-			return
-		}
-	}
-	rows.Close()
-	if count == 0 {
-		// 无索引
-		_, err = db.Exec(`INSERT INTO documents (group_name, title_name, content) VALUES (?, ?, ?)`, group, title, content)
-		if err != nil {
-			return
-		}
+	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, user, group)
+	var baseSearchEngine search.BaseSearchEngine
+	baseSearchEngine.Load(bsefile)
+	// 数据是否创建索引检测
+	if baseSearchEngine.IsEmpty() {
+		MakeGroupIndex(user, group, &baseSearchEngine)
 	} else {
-		// 有索引
-		_, err = db.Exec(`UPDATE documents SET content = ? WHERE group_name = ? AND title_name = ?`, content, group, title)
-		if err != nil {
-			return
-		}
+		baseSearchEngine.InsertOrUpdate(title, content)
 	}
+	baseSearchEngine.Save(bsefile)
 }
 
 // 删除索引
 func DeleteIndex(user, group, title string) {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	_, err = db.Exec(`DELETE FROM documents WHERE group_name = ? AND title_name = ?`, group, title)
-	if err != nil {
-		return
-	}
+	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, user, group)
+	var baseSearchEngine search.BaseSearchEngine
+	baseSearchEngine.Load(bsefile)
+	// 数据是否创建索引检测
+	baseSearchEngine.Delete(title)
+	baseSearchEngine.Save(bsefile)
 }
 
 // 删除组索引
 func DeleteGroupIndex(user, group string) {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	_, err = db.Exec(`DELETE documents WHERE group_name = ?`, group)
-	if err != nil {
-		return
-	}
+	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, user, group)
+	os.Remove(bsefile)
 }
 
 func auth_markdown(next http.Handler) http.Handler {
