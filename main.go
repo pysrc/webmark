@@ -607,13 +607,9 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	input.Query = strings.ToLower(input.Query)
 	// 判断索引存不存在
-	index_file := fmt.Sprintf("%s/%s.db", USERS_DIR, session.Name)
-	_, err = os.Stat(index_file)
-	if os.IsNotExist(err) {
-		// 建立索引
-		MakeGroupIndex(session.Name, input.Group)
-	}
+	CheckGroupIndex(session.Name, input.Group)
 	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, session.Name))
 	if err != nil {
 		return
@@ -638,6 +634,39 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Add("content-type", "application/json")
 	w.Write(bts)
+}
+
+// 检车分组索引是否存在，不存在就创建
+func CheckGroupIndex(user, group string) {
+	// 判断索引存不存在
+	index_file := fmt.Sprintf("%s/%s.db", USERS_DIR, user)
+	_, err := os.Stat(index_file)
+	if os.IsNotExist(err) {
+		// 建立索引
+		MakeGroupIndex(user, group)
+		return
+	}
+	db, err := sql.Open("sqlite3", index_file)
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	// 查询是否存在
+	rows, err := db.Query("select EXISTS (select 1 from documents where group_name = ?) as is_exists", group)
+	if err != nil {
+		return
+	}
+	var count int = 0
+	for rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			rows.Close()
+			return
+		}
+	}
+	rows.Close()
+	if count == 0 {
+		MakeGroupIndex(user, group)
+	}
 }
 
 // 建组索引
@@ -684,6 +713,8 @@ func MakeGroupIndex(user, group string) {
 
 // 建索引&刷新索引
 func MakeIndex(user, group, title, content string) {
+	content = title + content
+	content = strings.ToLower(content)
 	// 判断索引存不存在
 	index_file := fmt.Sprintf("%s/%s.db", USERS_DIR, user)
 	_, err := os.Stat(index_file)
