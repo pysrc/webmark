@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"crypto/rand"
+	"database/sql"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -229,8 +231,12 @@ func new_markdown(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	defer file.Close()
-	io.Copy(file, r.Body)
+	fb, err := io.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	file.Write(fb)
+	file.Close()
 	// 刷盘
 	var mds = user_map[session.Name].Group[groupname].Markdowns
 	var inside = false
@@ -244,6 +250,8 @@ func new_markdown(w http.ResponseWriter, r *http.Request) {
 		user_map[session.Name].Group[groupname].Markdowns = append(user_map[session.Name].Group[groupname].Markdowns, markdownname)
 		cache_save(session.Name)
 	}
+	// 刷索引
+	MakeIndex(session.Name, groupname, markdownname, string(fb))
 }
 
 // 删除文档
@@ -265,6 +273,7 @@ func del_markdown(w http.ResponseWriter, r *http.Request) {
 			mds = append(mds[:i], mds[i+1:]...)
 			user_map[session.Name].Group[groupname].Markdowns = mds
 			cache_save(session.Name)
+			DeleteIndex(session.Name, groupname, markdownname)
 			return
 		}
 	}
@@ -291,6 +300,7 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	cache_save(session.Name)
+	DeleteGroupIndex(session.Name, groupname)
 }
 
 // 用户检测，不存在就创建目录
@@ -577,6 +587,171 @@ func Auth(w http.ResponseWriter, r *http.Request) (bool, *UserSession) {
 
 }
 
+// 搜索
+type SearchInput struct {
+	Group string `json:"group"` // 分组
+	Query string `json:"query"` // 查询字符串
+}
+
+func search_detail(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+	rb, err := io.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	var input SearchInput
+	err = json.Unmarshal(rb, &input)
+	if err != nil {
+		return
+	}
+	// 判断索引存不存在
+	index_file := fmt.Sprintf("%s/%s.db", USERS_DIR, session.Name)
+	_, err = os.Stat(index_file)
+	if os.IsNotExist(err) {
+		// 建立索引
+		MakeGroupIndex(session.Name, input.Group)
+	}
+	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, session.Name))
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	rows, err := db.Query("SELECT title_name FROM documents WHERE group_name = ? and content MATCH ?", input.Group, input.Query)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	var res = make([]string, 0)
+	for rows.Next() {
+		var title string
+		if err := rows.Scan(&title); err != nil {
+			return
+		}
+		res = append(res, title)
+	}
+	bts, err := json.Marshal(res)
+	if err != nil {
+		return
+	}
+	w.Header().Add("content-type", "application/json")
+	w.Write(bts)
+}
+
+// 建组索引
+func MakeGroupIndex(user, group string) {
+	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	// 创建虚表
+	_, err = db.Exec(`
+		CREATE VIRTUAL TABLE IF NOT EXISTS documents USING fts5 (
+			group_name,
+			title_name,
+			content
+		)
+	`)
+	if err != nil {
+		return
+	}
+	// 列出组内所有的文档
+	files, err := os.ReadDir(fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".md") {
+			// 建索引
+			f, err := os.OpenFile(fmt.Sprintf("%s/%s/%s/%s", DATA_DIR, user, group, file.Name()), os.O_RDONLY, 0644)
+			if err != nil {
+				return
+			}
+			bt, err := io.ReadAll(f)
+			if err != nil {
+				return
+			}
+			MakeIndex(user, group, strings.Split(file.Name(), ".")[0], string(bt))
+			f.Close()
+		}
+	}
+}
+
+// 建索引&刷新索引
+func MakeIndex(user, group, title, content string) {
+	// 判断索引存不存在
+	index_file := fmt.Sprintf("%s/%s.db", USERS_DIR, user)
+	_, err := os.Stat(index_file)
+	if os.IsNotExist(err) {
+		// 建立索引
+		MakeGroupIndex(user, group)
+		return
+	}
+
+	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	// 查询是否存在
+	rows, err := db.Query("SELECT count(1) FROM documents WHERE group_name = ? and title_name = ?", group, title)
+	if err != nil {
+		return
+	}
+	var count int = 0
+	for rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			rows.Close()
+			return
+		}
+	}
+	rows.Close()
+	if count == 0 {
+		// 无索引
+		_, err = db.Exec(`INSERT INTO documents (group_name, title_name, content) VALUES (?, ?, ?)`, group, title, content)
+		if err != nil {
+			return
+		}
+	} else {
+		// 有索引
+		_, err = db.Exec(`UPDATE documents SET content = ? WHERE group_name = ? AND title_name = ?`, content, group, title)
+		if err != nil {
+			return
+		}
+	}
+}
+
+// 删除索引
+func DeleteIndex(user, group, title string) {
+	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	_, err = db.Exec(`DELETE FROM documents WHERE group_name = ? AND title_name = ?`, group, title)
+	if err != nil {
+		return
+	}
+}
+
+// 删除组索引
+func DeleteGroupIndex(user, group string) {
+	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, user))
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	_, err = db.Exec(`DELETE documents WHERE group_name = ?`, group)
+	if err != nil {
+		return
+	}
+}
+
 func auth_markdown(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if suc, _ := Auth(w, r); suc {
@@ -644,7 +819,7 @@ func init_work() {
 		fmt.Println("初始化密码: root")
 	}
 	for _, file := range files {
-		if !file.IsDir() {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".json") {
 			cache_load(file.Name())
 		}
 	}
@@ -757,6 +932,7 @@ func main() {
 	http.HandleFunc("/user-password-update", user_password_update)
 	http.HandleFunc("/new-user", new_user)
 	http.HandleFunc("/export/", export)
+	http.HandleFunc("/search-detail", search_detail)
 	server := http.Server{Addr: bind}
 	server.ListenAndServe()
 }
