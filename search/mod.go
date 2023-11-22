@@ -146,7 +146,11 @@ func (engine *BaseSearchEngine) Search(keyword string) []string {
 	ks := seg.CutSearch(keyword, true)
 	var a = make([][]int, 0, len(ks))
 	for _, k := range ks {
+		k := strings.Trim(k, "\n\t `~!@#$%^&*()_-+=,.<>/?'\":;[]{}")
 		if _, ok := skip[k]; ok {
+			continue
+		}
+		if k == "" {
 			continue
 		}
 		if b, ok := engine.Dao.Index[k]; ok {
@@ -162,7 +166,7 @@ func (engine *BaseSearchEngine) Search(keyword string) []string {
 }
 
 func (engine *BaseSearchEngine) InsertOrUpdate(key, content string) {
-	content = strings.ToLower(content)
+	content = strings.ToLower(key + content)
 	if engine.Dao.Keys == nil {
 		engine.Dao.Keys = make(map[string]int)
 	}
@@ -186,13 +190,17 @@ func (engine *BaseSearchEngine) InsertOrUpdate(key, content string) {
 		engine.Dao.Keys[key] = index
 		engine.Dao.RKeys[index] = key
 		for _, c := range segments {
-			if _, ok := skip[c]; ok {
+			k := strings.Trim(c, "\n\t `~!@#$%^&*()_-+=,.<>/?'\":;[]{}")
+			if _, ok := skip[k]; ok {
 				continue
 			}
-			if engine.Dao.Index[c] == nil {
-				engine.Dao.Index[c] = make(map[int]struct{})
+			if k == "" {
+				continue
 			}
-			engine.Dao.Index[c][index] = struct{}{}
+			if engine.Dao.Index[k] == nil {
+				engine.Dao.Index[k] = make(map[int]struct{})
+			}
+			engine.Dao.Index[k][index] = struct{}{}
 		}
 	} else {
 		// 修改
