@@ -22,6 +22,8 @@ var skip = map[string]struct{}{
 	"\r": {},
 }
 
+var trim = "\n\t `~!@#$%^&*()_-+=,.<>/?'\":;[]{}\\|"
+
 // 计算整数切片的交集，并返回按照次数递减排序的列表（不包含重复元素）
 func intersection(slices [][]int) []int {
 	if len(slices) == 0 {
@@ -146,7 +148,7 @@ func (engine *BaseSearchEngine) Search(keyword string) []string {
 	ks := seg.CutSearch(keyword, true)
 	var a = make([][]int, 0, len(ks))
 	for _, k := range ks {
-		k := strings.Trim(k, "\n\t `~!@#$%^&*()_-+=,.<>/?'\":;[]{}")
+		k := strings.Trim(k, trim)
 		if _, ok := skip[k]; ok {
 			continue
 		}
@@ -190,7 +192,7 @@ func (engine *BaseSearchEngine) InsertOrUpdate(key, content string) {
 		engine.Dao.Keys[key] = index
 		engine.Dao.RKeys[index] = key
 		for _, c := range segments {
-			k := strings.Trim(c, "\n\t `~!@#$%^&*()_-+=,.<>/?'\":;[]{}")
+			k := strings.Trim(c, trim)
 			if _, ok := skip[k]; ok {
 				continue
 			}
