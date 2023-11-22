@@ -19,7 +19,9 @@ const _low_html = `
     <li id="loweditor-rdelete">删除行</li>
     <li id="loweditor-cdelete">删除列</li>
 </ul>
-<progress id="loweditor-progress" value="0" max="100" style="position: absolute; left: 0; right: 0; top: 50%; bottom: 50%; margin: auto;display: none;"></progress>
+<div id="loweditor-pprogress" class="progress" style="position: absolute; width: 100%; top: 50%; display: none;">
+    <div id="loweditor-progress" role="progressbar" class="progress-bar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+</div>
 `;
 const $$ = document.getElementById.bind(document);
 const $c = document.createElement.bind(document);
@@ -30,6 +32,7 @@ function LowEditor(containerid, options) {
     // 表格的右键菜单
     var custom_menu = $$("loweditor-custom-menu");
     // 进度条
+    var ppbar = $$("loweditor-pprogress");
     var pbar = $$("loweditor-progress");
     document.addEventListener("click", function(event){
         custom_menu.style.display = "none";
@@ -361,7 +364,7 @@ function LowEditor(containerid, options) {
     }
     // 文件上传
     function upload(files) {
-        pbar.style.display = "block";
+        ppbar.style.display = "block";
         // 创建FormData对象，用于将文件上传到服务器
         var formData = new FormData();
         var image_names = [];
@@ -382,13 +385,15 @@ function LowEditor(containerid, options) {
         xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
                 var percent = (e.loaded / e.total) * 100;
+                percent = parseInt(percent);
                 console.log('上传进度：' + percent + '%');
-                pbar.value = percent;
+                pbar.style.width = percent + '%';
+                pbar.innerText = percent + '%';
             }
         });
         // 监听上传完成事件
         xhr.addEventListener('load', (e) => {
-            pbar.style.display = "none";
+            ppbar.style.display = "none";
             console.log('上传完成');
             for (var i = 0; i < image_names.length; i++) {
                 insertImage(`${options.file.prefix()}${image_names[i]}`);
