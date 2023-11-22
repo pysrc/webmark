@@ -608,6 +608,10 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input.Query = strings.ToLower(input.Query)
+	if !strings.Contains(input.Query, "%") {
+		// 不包含特定搜索
+		input.Query = "%" + input.Query + "%"
+	}
 	// 判断索引存不存在
 	CheckGroupIndex(session.Name, input.Group)
 	db, err := sql.Open("sqlite3", fmt.Sprintf("%s/%s.db", USERS_DIR, session.Name))
@@ -615,7 +619,7 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
-	rows, err := db.Query("SELECT title_name FROM documents WHERE group_name = ? and content MATCH ?", input.Group, input.Query)
+	rows, err := db.Query("SELECT title_name FROM documents WHERE group_name = ? and content like ?", input.Group, input.Query)
 	if err != nil {
 		return
 	}
@@ -678,7 +682,7 @@ func MakeGroupIndex(user, group string) {
 	defer db.Close()
 	// 创建虚表
 	_, err = db.Exec(`
-		CREATE VIRTUAL TABLE IF NOT EXISTS documents USING fts5 (
+		CREATE TABLE IF NOT EXISTS documents (
 			group_name,
 			title_name,
 			content

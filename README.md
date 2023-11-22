@@ -9,10 +9,6 @@ Markdown 管理软件
 + B/S架构
 + 轻量级
 
-## 编译
-
-`go build -tags "fts5"`
-
 ## 生成加密密码
 
 ```shell
