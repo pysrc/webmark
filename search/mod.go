@@ -22,7 +22,7 @@ var skip = map[string]struct{}{
 	"\r": {},
 }
 
-var trim = "\"\n\t `|~!@#$%^&*()_-+=,.<>/?':;；：[]{}\\！，￥…（）—《》。？【】、”“"
+var trim = "\"\n\t `1234567890|～~!@#$%^&*()_-+=,.<>/?':;；：[]{}\\！，￥…（）—《》。？【】、”“"
 
 // 计算整数切片的交集，并返回按照次数递减排序的列表（不包含重复元素）
 func intersection(slices [][]int) []int {
@@ -204,6 +204,9 @@ func (engine *BaseSearchEngine) InsertOrUpdate(key, content string) {
 				continue
 			}
 			if k == "" {
+				continue
+			}
+			if len(k) > 10 {
 				continue
 			}
 			if engine.Dao.Index[k] == nil {
