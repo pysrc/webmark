@@ -13,9 +13,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 	"webmark/search"
+	"webmark/utils"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -33,15 +35,8 @@ var SESSIONS_DIR = "sessions"
 var SessionExpires = 30 * 24 * time.Hour
 
 type UserInfo struct {
-	Name      string                `json:"name"`       // 用户名
-	Password  string                `json:"password"`   // 密码
-	Group     map[string]*GroupInfo `json:"group"`      // 文档组
-	GroupSort []string              `json:"group_sort"` // 按时间先后顺序排列的组名
-}
-
-type GroupInfo struct {
-	Name      string   `json:"name"`
-	Markdowns []string `json:"markdowns"`
+	Name     string `json:"name"`     // 用户名
+	Password string `json:"password"` // 密码
 }
 
 type UserSession struct {
@@ -133,12 +128,18 @@ func group_list(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
-	var user = user_map[session.Name]
 	w.Header().Add("content-type", "application/json")
-	ret := make(map[string][]string)
-	ret["group"] = user.GroupSort
-	res, _ := json.Marshal(ret)
-	w.Write(res)
+	var fname = DATA_DIR + "/" + session.Name
+	dirs, err := utils.ListImmediateSubDirectories(fname)
+	if err != nil {
+		return
+	}
+	var res = make([]string, len(dirs))
+	for i, v := range dirs {
+		res[i] = v.Name()
+	}
+	resbtr, _ := json.Marshal(res)
+	w.Write(resbtr)
 }
 
 // 新建分组
@@ -222,19 +223,6 @@ func new_markdown(w http.ResponseWriter, r *http.Request) {
 	}
 	file.Write(fb)
 	file.Close()
-	// 刷盘
-	var mds = user_map[session.Name].Group[groupname].Markdowns
-	var inside = false
-	for _, k := range mds {
-		if k == markdownname {
-			inside = true
-			break
-		}
-	}
-	if !inside {
-		user_map[session.Name].Group[groupname].Markdowns = append(user_map[session.Name].Group[groupname].Markdowns, markdownname)
-		cache_save(session.Name)
-	}
 	// 刷索引
 	MakeIndex(session.Name, groupname, markdownname, string(fb))
 }
@@ -250,18 +238,9 @@ func del_markdown(w http.ResponseWriter, r *http.Request) {
 	var groupname = parts[0]
 	var markdownname = parts[1]
 	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname
-	var mds = user_map[session.Name].Group[groupname].Markdowns
-	for i := 0; i < len(mds); i++ {
-		if mds[i] == markdownname {
-			os.RemoveAll(fname)
-			os.Remove(fname + ".md")
-			mds = append(mds[:i], mds[i+1:]...)
-			user_map[session.Name].Group[groupname].Markdowns = mds
-			cache_save(session.Name)
-			DeleteIndex(session.Name, groupname, markdownname)
-			return
-		}
-	}
+	os.RemoveAll(fname)
+	os.Remove(fname + ".md")
+	DeleteIndex(session.Name, groupname, markdownname)
 }
 
 // 删除分组
@@ -275,17 +254,6 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 	var groupname = parts[0]
 	var fname = DATA_DIR + "/" + session.Name + "/" + groupname
 	os.RemoveAll(fname)
-	delete(user_map[session.Name].Group, groupname)
-	var gs = user_map[session.Name].GroupSort
-	for i, v := range gs {
-		if v == groupname {
-			gs = append(gs[:i], gs[i+1:]...)
-			user_map[session.Name].GroupSort = gs
-			break
-		}
-	}
-	cache_save(session.Name)
-	DeleteGroupIndex(session.Name, groupname)
 }
 
 // 用户检测，不存在就创建目录
@@ -345,16 +313,6 @@ func group_check(username string, group string) {
 		if err != nil {
 			return
 		}
-		if nil == user_map[username].Group {
-			user_map[username].Group = make(map[string]*GroupInfo)
-		}
-		user_map[username].Group[group] = &GroupInfo{
-			Name:      group,
-			Markdowns: []string{},
-		}
-		user_map[username].GroupSort = append(user_map[username].GroupSort, group)
-		// 刷盘
-		cache_save(username)
 	}
 }
 
@@ -614,6 +572,12 @@ func MakeGroupIndex(user, group string, baseSearchEngine *search.BaseSearchEngin
 		fmt.Println(err)
 		return
 	}
+	// 按照文件的 ModTime (创建日期) 排序
+	sort.Slice(files, func(i, j int) bool {
+		ii, _ := files[i].Info()
+		ji, _ := files[j].Info()
+		return ii.ModTime().Before(ji.ModTime())
+	})
 
 	for _, file := range files {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".md") {

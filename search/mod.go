@@ -147,9 +147,18 @@ func (engine *BaseSearchEngine) Search(keyword string) []string {
 	keyword = strings.ToLower(keyword)
 	ks := seg.CutSearch(keyword, true)
 	if len(ks) == 0 {
+		rkeys := make([]int, 0, len(engine.Dao.RKeys))
+		for key := range engine.Dao.RKeys {
+			rkeys = append(rkeys, key) // 将每个 key 添加到切片中
+		}
+		// 从大到小排序
+		sort.Slice(rkeys, func(i, j int) bool {
+			return rkeys[i] > rkeys[j]
+		})
+
 		keys := make([]string, 0, len(engine.Dao.Keys))
-		for key := range engine.Dao.Keys {
-			keys = append(keys, key) // 将每个 key 添加到切片中
+		for _, key := range rkeys {
+			keys = append(keys, engine.Dao.RKeys[key]) // 将每个 key 添加到切片中
 		}
 		return keys
 	}
@@ -168,6 +177,10 @@ func (engine *BaseSearchEngine) Search(keyword string) []string {
 	}
 	c := intersection(a)
 	res := make([]string, len(c))
+	// 从大到小排序
+	sort.Slice(c, func(i, j int) bool {
+		return c[i] > c[j]
+	})
 	for i, v := range c {
 		res[i] = engine.Dao.RKeys[v]
 	}
