@@ -305,53 +305,32 @@
     }
     $('title').html(groupname);
     $('#s-group').html(groupname);
-    var mds = [];
     function show_mds() {
         var keyword = $("#keyword").val();
-        if (keyword == null) {
-            keyword = ''
-        }
         // 清空列表
         var gps = $("[data-gp='md']");
         for (let index = 0; index < gps.length; index++) {
             const e = gps[index];
             e.remove();
         }
-        if(keyword == '') {
-            // 显示全部的
-            for (let index = 0; index < mds.length; index++) {
-                const e = mds[index];
-                $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
-            }
-            return
-        } else {
-            // 搜索
-            $.ajax({
-                url: "/search-detail",
-                type: "POST",
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    "group": groupname,
-                    "query": keyword
-                }),
-                success: function (data) {
-                    console.log(data);
-                    for (let index = 0; index < data.length; index++) {
-                        const e = data[index];
-                        $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
-                    }
+        // 搜索
+        $.ajax({
+            url: "/search-detail",
+            type: "POST",
+            contentType: 'application/json',
+            data: JSON.stringify({
+                "group": groupname,
+                "query": keyword
+            }),
+            success: function (data) {
+                console.log(data);
+                for (let index = 0; index < data.length; index++) {
+                    const e = data[index];
+                    $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
                 }
-            });
-        }
+            }
+        });
     }
-    $.ajax({
-        url: "/markdown-list?group=" + groupname,
-        dataType: "json",
-        success: function (data) {
-            mds = data["markdowns"];
-            show_mds();
-        }
-    });
     $("#search").click(() => {
         // 搜索
         show_mds();
@@ -463,6 +442,7 @@
         draw(md);
         $('#mdmodal').modal('hide');
     });
+    show_mds();
 </script>
 
 </html>

@@ -146,6 +146,13 @@ func (engine *BaseSearchEngine) Save(file string) {
 func (engine *BaseSearchEngine) Search(keyword string) []string {
 	keyword = strings.ToLower(keyword)
 	ks := seg.CutSearch(keyword, true)
+	if len(ks) == 0 {
+		keys := make([]string, 0, len(engine.Dao.Keys))
+		for key := range engine.Dao.Keys {
+			keys = append(keys, key) // 将每个 key 添加到切片中
+		}
+		return keys
+	}
 	var a = make([][]int, 0, len(ks))
 	for _, k := range ks {
 		k := strings.Trim(k, trim)

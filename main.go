@@ -141,20 +141,6 @@ func group_list(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-// 文档列表
-func markdown_list(w http.ResponseWriter, r *http.Request) {
-	var suc, session = Auth(w, r)
-	if !suc {
-		return
-	}
-	var user = user_map[session.Name]
-	var group = r.FormValue("group")
-	w.Header().Add("content-type", "application/json")
-	var mds = user.Group[group]
-	res, _ := json.Marshal(mds)
-	w.Write(res)
-}
-
 // 新建分组
 // /new-group
 func new_group(w http.ResponseWriter, r *http.Request) {
@@ -852,7 +838,6 @@ func main() {
 	http.HandleFunc("/new-markdown/", new_markdown)
 	http.HandleFunc("/del-markdown/", del_markdown)
 	http.HandleFunc("/del-group/", del_group)
-	http.HandleFunc("/markdown-list", markdown_list)
 	http.HandleFunc("/user-password-update", user_password_update)
 	http.HandleFunc("/new-user", new_user)
 	http.HandleFunc("/export/", export)
