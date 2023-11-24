@@ -323,10 +323,13 @@
                 "query": keyword
             }),
             success: function (data) {
-                console.log(data);
                 for (let index = 0; index < data.length; index++) {
                     const e = data[index];
                     $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
+                }
+                // 打开第一个文档
+                if(data && data.length > 0) {
+                    openMarkdown(data[0]);
                 }
             }
         });
@@ -350,12 +353,27 @@
         draw(ret.responseText);
         editor.setEditable(false);
     }
-    function markdownSave(mdname, content) {
+    function newMarkdownSave(mdname, content) {
         var xhr = new XMLHttpRequest();
         // 上传完成
         xhr.addEventListener('load', (e) => {
-            // 刷新页面
-            location.reload();
+            if(xhr.status != 200) {
+                alter(`http status: ${xhr.status}`)
+                return;
+            }
+            var ret = JSON.parse(xhr.responseText);
+            if(ret['success']) {
+                // 成功
+                // 关闭modal
+                $('#new-markdown-modal').modal('hide');
+                // 刷新页面
+                show_mds();
+                // 新建完成，打开新建的文档
+                openMarkdown(mdname);
+            } else {
+                alert(ret["msg"]);
+            }
+
         });
         // 发送请求
         xhr.open('POST', `/new-markdown/${groupname}/${mdname}`);
@@ -364,11 +382,11 @@
     }
     $("#new-markdown-submit").click(() => {
         // 新建文档保存
-        markdownSave($("#nmdtitle").val(), initmd);
+        newMarkdownSave($("#nmdtitle").val(), initmd);
     });
     $("#nmdtitle").keydown((e) => {
         if (event.keyCode == 13) {
-            markdownSave($("#nmdtitle").val(), initmd);
+            newMarkdownSave($("#nmdtitle").val(), initmd);
         }
     });
     $("#edit-btn").click(() => {
@@ -391,12 +409,21 @@
     function savemd() {
         var xhr = new XMLHttpRequest();
         xhr.addEventListener('load', (e) => {
-            // 显示成功提示
-            var dom = $('<div class="alert alert-success">保存成功！</div>');
-            $("#info").append(dom);
-            window.setTimeout(function () { dom.remove(); }, 2000);
+            if(xhr.status != 200) {
+                alter(`http status: ${xhr.status}`)
+                return;
+            }
+            var ret = JSON.parse(xhr.responseText);
+            if(ret['success']) {
+                // 显示成功提示
+                var dom = $('<div class="alert alert-success">保存成功！</div>');
+                $("#info").append(dom);
+                window.setTimeout(function () { dom.remove(); }, 2000);
+            } else {
+                alert(ret["msg"]);
+            }
         });
-        xhr.open("POST", `/new-markdown/${groupname}/${currentMarkdown}`);
+        xhr.open("POST", `/update-markdown/${groupname}/${currentMarkdown}`);
         xhr.setRequestHeader("Content-Type", "text/plain");
         xhr.send(toMarkdown());
     }

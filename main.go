@@ -200,7 +200,7 @@ func new_user(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// 新建、修改文档
+// 新建文档
 // /new-markdown/groupname/markdownname
 func new_markdown(w http.ResponseWriter, r *http.Request) {
 	var suc, session = Auth(w, r)
@@ -212,6 +212,18 @@ func new_markdown(w http.ResponseWriter, r *http.Request) {
 	var markdownname = parts[1]
 	group_check(session.Name, groupname)
 	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname + ".md"
+	_, err := os.Stat(fname)
+	// 检查错误类型
+	if !os.IsNotExist(err) {
+		// 文件存在
+		w.Header().Add("content-type", "application/json")
+		bts, _ := json.Marshal(map[string]any{
+			"success": false,
+			"msg":     "文件已经存在！",
+		})
+		w.Write(bts)
+		return
+	}
 	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		fmt.Println(err)
@@ -225,6 +237,55 @@ func new_markdown(w http.ResponseWriter, r *http.Request) {
 	file.Close()
 	// 刷索引
 	MakeIndex(session.Name, groupname, markdownname, string(fb))
+	w.Header().Add("content-type", "application/json")
+	bts, _ := json.Marshal(map[string]bool{
+		"success": true,
+	})
+	w.Write(bts)
+}
+
+// 修改文档
+// /update-markdown/groupname/markdownname
+func update_markdown(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+	parts := GetPathList(r.URL.Path, "/update-markdown/")
+	var groupname = parts[0]
+	var markdownname = parts[1]
+	group_check(session.Name, groupname)
+	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname + ".md"
+	_, err := os.Stat(fname)
+	// 检查错误类型
+	if os.IsNotExist(err) {
+		// 文件不存在
+		w.Header().Add("content-type", "application/json")
+		bts, _ := json.Marshal(map[string]any{
+			"success": false,
+			"msg":     "文件不存在！",
+		})
+		w.Write(bts)
+		return
+	}
+	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fb, err := io.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	file.Write(fb)
+	file.Close()
+	// 刷索引
+	MakeIndex(session.Name, groupname, markdownname, string(fb))
+	w.Header().Add("content-type", "application/json")
+	bts, _ := json.Marshal(map[string]any{
+		"success": true,
+	})
+	w.Write(bts)
 }
 
 // 删除文档
@@ -819,6 +880,7 @@ func main() {
 	http.HandleFunc("/group-list", group_list)
 	http.HandleFunc("/new-group", new_group)
 	http.HandleFunc("/new-markdown/", new_markdown)
+	http.HandleFunc("/update-markdown/", update_markdown)
 	http.HandleFunc("/del-markdown/", del_markdown)
 	http.HandleFunc("/del-group/", del_group)
 	http.HandleFunc("/user-password-update", user_password_update)
