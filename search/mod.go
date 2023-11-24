@@ -132,7 +132,11 @@ func (engine *BaseSearchEngine) KeyExists(key string) bool {
 }
 
 func (engine *BaseSearchEngine) Save(file string) {
-	byte, _ := json.MarshalIndent(engine.Dao, "", "    ")
+	byte, err := json.Marshal(engine.Dao)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		fmt.Println(err)
