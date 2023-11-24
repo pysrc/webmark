@@ -634,6 +634,25 @@ func auth_markdown(next http.Handler) http.Handler {
 	})
 }
 
+func auth_static(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" ||
+			r.URL.Path == "/index.html" ||
+			strings.HasSuffix(r.URL.Path, ".css") ||
+			strings.HasSuffix(r.URL.Path, ".js") {
+			http.StripPrefix("/", next).ServeHTTP(w, r)
+		} else {
+			// 检查是否登录
+			if suc, _ := Auth(w, r); suc {
+				http.StripPrefix("/", next).ServeHTTP(w, r)
+			} else {
+				// 未登录，重定向到登录页面
+				AuthError(w, r)
+			}
+		}
+	})
+}
+
 // 从用户配置文件刷新缓存
 func cache_load(user_file_name string) {
 	content, err := os.ReadFile(USERS_DIR + "/" + user_file_name)
@@ -791,7 +810,7 @@ func main() {
 	init_work()
 	go Job()
 	webroot, _ := fs.Sub(staticFiles, "page")
-	http.Handle("/", http.StripPrefix("/", http.FileServer(http.FS(webroot))))
+	http.Handle("/", auth_static(http.FileServer(http.FS(webroot))))
 	// http.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("page/"))))
 	http.Handle("/markdown/", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/"))))
 	http.HandleFunc("/upload/", upload)
