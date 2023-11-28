@@ -611,14 +611,16 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, session.Name, input.Group)
-	var baseSearchEngine search.BaseSearchEngine
-	baseSearchEngine.Load(bsefile)
+	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, session.Name, input.Group)
+	var baseSearchEngine = search.LowSearch{
+		BasePath: basePath,
+	}
+	baseSearchEngine.Init()
 	// 数据是否创建索引检测
-	if baseSearchEngine.IsEmpty() {
+
+	if len(baseSearchEngine.Search("")) == 0 {
 		MakeGroupIndex(session.Name, input.Group, &baseSearchEngine)
 	}
-	baseSearchEngine.Save(bsefile)
 	res := baseSearchEngine.Search(input.Query)
 	w.Header().Add("content-type", "application/json")
 	bts, _ := json.Marshal(res)
@@ -626,7 +628,7 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 }
 
 // 建组索引
-func MakeGroupIndex(user, group string, baseSearchEngine *search.BaseSearchEngine) {
+func MakeGroupIndex(user, group string, baseSearchEngine *search.LowSearch) {
 	// 列出组内所有的文档
 	files, err := os.ReadDir(fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group))
 	if err != nil {
@@ -659,32 +661,28 @@ func MakeGroupIndex(user, group string, baseSearchEngine *search.BaseSearchEngin
 
 // 建索引&刷新索引
 func MakeIndex(user, group, title, content string) {
-	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, user, group)
-	var baseSearchEngine search.BaseSearchEngine
-	baseSearchEngine.Load(bsefile)
+	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group)
+	var baseSearchEngine = search.LowSearch{
+		BasePath: basePath,
+	}
+	baseSearchEngine.Init()
 	// 数据是否创建索引检测
-	if baseSearchEngine.IsEmpty() {
+	if len(baseSearchEngine.Search("")) == 0 {
 		MakeGroupIndex(user, group, &baseSearchEngine)
 	} else {
 		baseSearchEngine.InsertOrUpdate(title, content)
 	}
-	baseSearchEngine.Save(bsefile)
 }
 
 // 删除索引
 func DeleteIndex(user, group, title string) {
-	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, user, group)
-	var baseSearchEngine search.BaseSearchEngine
-	baseSearchEngine.Load(bsefile)
+	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group)
+	var baseSearchEngine = search.LowSearch{
+		BasePath: basePath,
+	}
+	baseSearchEngine.Init()
 	// 数据是否创建索引检测
 	baseSearchEngine.Delete(title)
-	baseSearchEngine.Save(bsefile)
-}
-
-// 删除组索引
-func DeleteGroupIndex(user, group string) {
-	bsefile := fmt.Sprintf("%s/%s/%s/.search.json", DATA_DIR, user, group)
-	os.Remove(bsefile)
 }
 
 func auth_markdown(next http.Handler) http.Handler {
