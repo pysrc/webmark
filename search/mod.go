@@ -226,6 +226,9 @@ func splitWord(content string) map[string]struct{} {
 		if k == "" {
 			continue
 		}
+		if len(k) > 10 {
+			continue
+		}
 		tm[s] = struct{}{}
 	}
 	return tm
