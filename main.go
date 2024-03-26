@@ -73,6 +73,48 @@ func GetPathList(paths string, prefix string) []string {
 	return strings.Split(path, "/")
 }
 
+type LoginRecord struct {
+	LastTime int64 // 最后尝试时间
+	Count    int   // 尝试次数
+}
+
+var loginRecord = make(map[string]*LoginRecord)
+
+// 一天超时清理
+const loginRecordTimeOut = 60 * 60 * 24
+
+// const loginRecordTimeOut = 30
+
+func loginErr(username string) {
+	//认证失败
+	if r, ok := loginRecord[username]; ok {
+		r.LastTime = time.Now().Unix()
+		r.Count += 1
+		fmt.Println("add 1", r.Count)
+	} else {
+		loginRecord[username] = &LoginRecord{
+			LastTime: time.Now().Unix(),
+			Count:    1,
+		}
+		fmt.Println("init")
+	}
+}
+
+// 登录记录清除
+func loginRecordClear() {
+	diff := time.Now().Unix() - loginRecordTimeOut
+	dels := make([]string, 0)
+	for username, r := range loginRecord {
+		if r.Count > 3 && diff > r.LastTime {
+			dels = append(dels, username)
+		}
+	}
+	for _, username := range dels {
+		delete(loginRecord, username)
+		fmt.Println("clear", username)
+	}
+}
+
 // 登录
 func login(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
@@ -81,9 +123,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 		var usr = user_map[username]
 		if usr == nil {
 			// 用户不存在
+			loginErr(username)
 			AuthError(w, r)
 		} else {
-
 			if Verify(usr.Password, r.PostFormValue("password")) {
 				// 认证通过
 				var session_id = Uuid()
@@ -101,7 +143,12 @@ func login(w http.ResponseWriter, r *http.Request) {
 				http.SetCookie(w, &cookie_username)
 				http.Redirect(w, r, "user_main.html", http.StatusSeeOther)
 			} else {
-				//认证失败
+				loginErr(username)
+				// 验证用户是不是在恶意尝试
+				if r, ok := loginRecord[username]; ok && r.Count > 3 {
+					w.Write([]byte("fuck off"))
+					return
+				}
 				AuthError(w, r)
 			}
 		}
@@ -811,6 +858,7 @@ func init_work() {
 // 定时任务
 func Job() {
 	var dur = 1 * time.Hour
+	// var dur = 1 * time.Second
 	t := time.NewTimer(dur)
 	for {
 		<-t.C
@@ -823,6 +871,8 @@ func Job() {
 				os.Remove(SESSIONS_DIR + "/" + k + ".json")
 			}
 		}
+		// 检查恶意登录
+		loginRecordClear()
 	}
 }
 
