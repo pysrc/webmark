@@ -90,13 +90,11 @@ func loginErr(username string) {
 	if r, ok := loginRecord[username]; ok {
 		r.LastTime = time.Now().Unix()
 		r.Count += 1
-		fmt.Println("add 1", r.Count)
 	} else {
 		loginRecord[username] = &LoginRecord{
 			LastTime: time.Now().Unix(),
 			Count:    1,
 		}
-		fmt.Println("init")
 	}
 }
 
@@ -126,6 +124,11 @@ func login(w http.ResponseWriter, r *http.Request) {
 			loginErr(username)
 			AuthError(w, r)
 		} else {
+			// 验证用户是不是在恶意尝试
+			if r, ok := loginRecord[username]; ok && r.Count > 3 {
+				w.Write([]byte("fuck off"))
+				return
+			}
 			if Verify(usr.Password, r.PostFormValue("password")) {
 				// 认证通过
 				var session_id = Uuid()
@@ -144,11 +147,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "user_main.html", http.StatusSeeOther)
 			} else {
 				loginErr(username)
-				// 验证用户是不是在恶意尝试
-				if r, ok := loginRecord[username]; ok && r.Count > 3 {
-					w.Write([]byte("fuck off"))
-					return
-				}
 				AuthError(w, r)
 			}
 		}
