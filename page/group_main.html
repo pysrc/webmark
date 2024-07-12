@@ -19,6 +19,7 @@
 
     <script src="static/turndown/turndown.js"></script>
     <script src="static/turndown/turndown-plugin-gfm.js"></script>
+    <script src="static/crypto-js/crypto-js.min.js"></script>
     <style>
         [class*="col-"] {
             padding-right: 1px;
@@ -47,6 +48,38 @@
                     </button>
                     <button type="button" class="btn btn-primary" id="mdshow-ok">
                         确定
+                    </button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal -->
+    </div>
+    <div class="modal fade" id="password-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                        &times;
+                    </button>
+                    <h4 class="modal-title" id="myModalLabel">
+                        加密/解密
+                    </h4>
+                </div>
+                <div class="modal-body">
+                    <div id="password-group" role="form">
+                        <div class="form-group">
+                            <input type="password" class="form-control" id="password"
+                                placeholder="密码">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭
+                    </button>
+                    <button type="button" class="btn btn-primary" id="enc-btn">
+                        加密
+                    </button>
+                    <button type="button" class="btn btn-primary" id="dec-btn">
+                        解密
                     </button>
                 </div>
             </div><!-- /.modal-content -->
@@ -124,6 +157,7 @@
                         <div class="btn-group" style="position: fixed;top: 10%;right: 28%;">
                             <button type="button" class="btn btn-default" href="#" data-toggle="modal" data-target="#mdmodal">Markdown</button>
                             <button id="edit-btn" type="button" class="btn btn-default">编辑</button>
+                            <button type="button" class="btn btn-default" data-toggle="modal" data-target="#password-modal">加密/解密</button>
                             <button id="save-btn" type="button" class="btn btn-primary">保存</button>
                             <button id="export-md-btn" type="button" class="btn btn-default">导出</button>
                             <button id="delete-btn" type="button" class="btn btn-danger">删除</button>
@@ -399,6 +433,20 @@
             editor.setEditable(false);
             draw(toMarkdown());
         }
+    });
+    $("#dec-btn").click(() => {
+        var _md = toMarkdown();
+        var _passwd = $("#password").val();
+        var _demd = CryptoJS.AES.decrypt(_md, _passwd).toString(CryptoJS.enc.Utf8);
+        editor.setEditable(false);
+        draw(_demd);
+    });
+    $("#enc-btn").click(() => {
+        var _md = toMarkdown();
+        var _passwd = $("#password").val();
+        var _enmd = CryptoJS.AES.encrypt(_md, _passwd).toString();
+        editor.setEditable(false);
+        draw(_enmd);
     });
     $("#export-group").click(() => {
         window.open(`/export/${groupname}`);
