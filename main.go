@@ -330,6 +330,7 @@ func update_markdown(w http.ResponseWriter, r *http.Request) {
 	bts, _ := json.Marshal(map[string]any{
 		"success": true,
 	})
+	clean_files(groupname, session.Name, markdownname)
 	w.Write(bts)
 }
 
@@ -586,6 +587,37 @@ func upload(w http.ResponseWriter, r *http.Request) {
 
 	// 返回上传成功的信息
 	fmt.Fprintf(w, "文件上传成功")
+}
+
+/*
+清理多余文件
+*/
+func clean_files(groupname, username, markdown string) bool {
+	var _path = DATA_DIR + "/" + username + "/" + groupname + "/" + markdown
+	// 读文件
+	var _md_path = _path + ".md"
+	// 提取出所有文件相关地址
+	_bytes, err := os.ReadFile(_md_path)
+	if err != nil {
+		return false
+	}
+	var _content = string(_bytes)
+	// 读出文件出中所有的文件
+	if _sub_fs, err := os.ReadDir(_path); os.IsNotExist(err) {
+		return true
+	} else if err != nil {
+		return true
+	} else {
+		// 删除不在文章中存在的文件
+		for _, _fs := range _sub_fs {
+			if !_fs.IsDir() {
+				if !strings.Contains(_content, markdown+"/"+_fs.Name()) {
+					os.Remove(_path + "/" + _fs.Name())
+				}
+			}
+		}
+	}
+	return true
 }
 
 func AuthError(w http.ResponseWriter, r *http.Request) {
