@@ -1,54 +1,326 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
+    <title></title>
+    <meta charset="utf-8">
+    <script src="static/js/jquery.min.js"></script>
     <link href="static/bootstrap/bootstrap.min.css" rel="stylesheet">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Page</title>
+    <script src="static/bootstrap/bootstrap-treeview.min.js"></script>
+    <script src="static/bootstrap/bootstrap.min.js"></script>
+    <script src="static/js/webmark.common.js"></script>
+
+    <script src="static/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="static/highlight/default.min.css">
+    <script src="static/highlight/highlight.min.js"></script>
+
+    <link href="static/loweditor/loweditor.css" rel="stylesheet">
+    <script src="static/loweditor/loweditor.js"></script>
+
+    <script src="static/turndown/turndown.js"></script>
+    <script src="static/turndown/turndown-plugin-gfm.js"></script>
+    <script src="static/crypto-js/crypto-js.min.js"></script>
     <style>
-        /* 可以在这里添加自定义样式 */
-        /* 示例：调整输入框的样式 */
-        .form-control {
-            margin-bottom: 15px;
-        }
-
-        /* 示例：设置登录框的宽度和居中 */
-        .login-box {
-            max-width: 400px;
-            margin: auto;
-            margin-top: 100px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-
-        /* 示例：调整登录按钮的样式 */
-        .btn-login {
-            width: 100%;
+        [class*="col-"] {
+            padding-right: 1px;
+            padding-left: 1px;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
+    <div id="i-header" class="container-fluid">
         <div class="row">
-            <div class="col-md-6 col-md-offset-3">
-                <div class="login-box">
-                    <h2 class="text-center">Login</h2>
-                    <form action="/login" method="post">
+            <nav class="navbar navbar-default" role="navigation">
+                <div class="container-fluid">
+                    <div class="navbar-header">
+                        <a class="navbar-brand" href="#" id="s-group"></a>
+                    </div>
+                    <div class="navbar-form navbar-left">
                         <div class="form-group">
-                            <input type="text" name="username" class="form-control" placeholder="Username" required>
+                            <input id="keyword" type="text" class="form-control" placeholder="关键词">
                         </div>
-                        <div class="form-group">
-                            <input type="password" name="password" class="form-control" placeholder="Password" required>
+                        <button id="search" class="btn btn-default">搜索</button>
+                    </div>
+                    <ul class="nav navbar-nav navbar-right">
+                        <li><a href="#" id="home"><span class="glyphicon glyphicon-home"></span></a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </div>
+        <div class="row">
+            <div class="col-sm-2">
+                <ul id="s-md-list" class="list-group"></ul>
+            </div>
+            <div class="col-sm-10">
+                <!-- 右边 -->
+                <div id="right-show" style="display: none;">
+                    <div class="col-sm-8">
+                        <div id="s-markdown" class="panel panel-primary" style="margin-top: 6%;">
+                            <div class="panel-heading">
+                                <h3 id="s-title" class="panel-title"></h3>
+                            </div>
+                            <div class="panel-body">
+                                <div id="markdown-output"></div>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-login">Login</button>
-                    </form>
+                        <div class="list-group" style="position: fixed;bottom: 0%;right: 28%;">
+                            <a id="toup" href="#" class="list-group-item" style="text-align: center; color: blue;"><span
+                                    class='glyphicon glyphicon-menu-up'></span></a>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div id="treeview"></div>
+                    </div>
+                    <!-- 其他组件 -->
+                    <div id="info" style="width: 15%;float: right;z-index: 9999;position: relative;"></div>
                 </div>
             </div>
         </div>
     </div>
 </body>
+<script>
+    // 设置样式
+    $(document).ready(function() {
+        var browserHeight = window.innerHeight || document.documentElement.clientHeight;
+        let _h = browserHeight - $("#i-header")[0].clientHeight - 10;
+        $("#s-md-list").css("max-height", `${_h}px`);
+        $("#s-md-list").css("overflow-y", "auto");
+        $("#treeview").css("max-height", `${_h}px`);
+        $("#treeview").css("overflow-y", "auto");
+    });
+    
+</script>
+<script>
+    const groupname = "public";
+    // 图片缓存
+    var currentMarkdown = '';
+    const renderer = new marked.Renderer();
+    var abstracts = [];
+    renderer.code = function(code, language) {
+        if (language && hljs.getLanguage(language)) {
+            code = hljs.highlight(language, code).value;
+        } else {
+            code = hljs.highlightAuto(code).value;
+        }
+        return '<div><pre><code class="language-' + language + '">' + code + '</code></pre></div>';
+    };
+    renderer.image = function (href, title, text) {
+        if (href.startsWith(`${currentMarkdown}/`)) {
+            return `<img src="markdown/public/${groupname}/${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
+        } else {
+            return `<img src="${href}" style="max-width: 100%;height: auto;" alt="${text}">`;
+        }
+    };
+    renderer.link = function (href, title, text) {
+        if (href.startsWith(`${currentMarkdown}/`)) {
+            return `<a target="_blank" href="markdown/public/${groupname}/${href}">${text}</a>`;
+        } else {
+            return `<a target="_blank" href="${href}">${text}</a>`;
+        }
+    }
+    renderer.table = function (header, body) {
+        return `<table class="table table-bordered"><thead>${header}</thead><tbody>${body}</tbody></table>`;
+    }
+    renderer.heading = function (text, level, raw) {
+        var id = `${Math.random()}`;
+        var node = {
+            "href": `#${id}`,
+            "text": text,
+            "level": level
+        };
+        if (abstracts.length == 0) {
+            abstracts.push(node);
+        } else {
+            var curs = abstracts;
+            var t = abstracts[abstracts.length - 1];
+            while (true) {
+                if (level > t.level) {
+                    // 子项
+                    if (t.nodes == null) {
+                        t.nodes = [];
+                        t.nodes.push(node);
+                        break;
+                    } else {
+                        curs = t.nodes;
+                        t = t.nodes[t.nodes.length - 1];
+                    }
+                } else {
+                    // 平级，添加到当前平级列表
+                    curs.push(node);
+                    break;
+                }
+            }
+        }
+        return `<h${level} id="${id}">${text}</h${level}>`;
+    };
+    marked.setOptions({
+        renderer: renderer,
+        gfm: true,
+        breaks: true,
+        highlight: (code) => {
+            return hljs.highlightAuto(code).value;
+        }
+    });
+</script>
+<script>
+    // editor配置
+    var editor = LowEditor("markdown-output", {
+        file: {
+            prefix: () => `markdown/public/${groupname}/${currentMarkdown}/`,
+            upload: () => `/upload/${groupname}/${currentMarkdown}`
+        },
+        code_onload: (code) => {
+            hljs.highlightElement(code);
+        },
+        onsave: () => {
+        }
+    });
+</script>
+<script>
+    // html转markdown配置
+    var turndownService = new TurndownService({
+        headingStyle: "atx",
+        emDelimiter: "*",
+        preformattedCode: true,
+        codeBlockStyle: "fenced"
+    });
+    turndownService.use(turndownPluginGfm.gfm);
+    turndownService.addRule('multiLineTable', {
+        filter: 'table',
+        replacement: function (content) {
+            // 将表格中的多行转换为Markdown表格
+            let eles = content.split('|');
+            for (let index = 0; index < eles.length; index++) {
+                var e = eles[index];
+                if(e != '\n') {
+                    e = e.replaceAll('\n', '<br>');
+                    eles[index] = e;
+                }
+            }
+            return eles.join("|");
+        }
+    });
+    function toMarkdown() {
+        var md = editor.getHtml();
+        var md = md.replaceAll(`markdown/public/${groupname}/`, '');
+        return turndownService.turndown(md);
+    }
+</script>
+<script>
+    function draw(markdown) {
+        abstracts = [];
+        const html = marked.parse(markdown);
+        editor.setHtml(html);
+        $('#treeview').html('');
+        $('#treeview').treeview({
+            backColor: "#FFFFFF",
+            color: "#428bca",
+            enableLinks: true,
+            showBorder: false,
+            highlightSelected: false,
+            levels: 5,
+            data: abstracts
+        });
+    }
+    $('title').html(groupname);
+    $('#s-group').html(groupname);
+    function show_mds() {
+        var keyword = $("#keyword").val();
+        // 清空列表
+        var gps = $("[data-gp='md']");
+        for (let index = 0; index < gps.length; index++) {
+            const e = gps[index];
+            e.remove();
+        }
+        // 搜索
+        $.ajax({
+            url: "/search-detail",
+            type: "POST",
+            contentType: 'application/json',
+            data: JSON.stringify({
+                "group": groupname,
+                "query": keyword
+            }),
+            success: function (data) {
+                for (let index = 0; index < data.length; index++) {
+                    const e = data[index];
+                    $("#s-md-list").append($(`<a href="#" data-gp="md" class="list-group-item" onclick="openMarkdown('${e}')">${e}</a>`));
+                }
+                // 打开第一个文档
+                if(data && data.length > 0) {
+                    openMarkdown(data[0]);
+                }
+            }
+        });
+    }
+    $("#search").click(() => {
+        // 搜索
+        show_mds();
+    });
+    $("#keyword").keydown((e) => {
+        if (event.keyCode == 13) {
+            // 回车查询
+            show_mds();
+        }
+    });
+    function openMarkdown(mdname) {
+        currentMarkdown = mdname;
+        $("#s-title").html(currentMarkdown);
+        $("#right-show").show();
+        $("#edit-btn").text('编辑');
+        var ret = $.ajax({ url: `/markdown/public/${groupname}/${mdname}.md`, cache: false, async: false });
+        draw(ret.responseText);
+        editor.setEditable(false);
+    }
+    function newMarkdownSave(mdname, content) {
+        var xhr = new XMLHttpRequest();
+        // 上传完成
+        xhr.addEventListener('load', (e) => {
+            if(xhr.status != 200) {
+                alter(`http status: ${xhr.status}`)
+                return;
+            }
+            var ret = JSON.parse(xhr.responseText);
+            if(ret['success']) {
+                // 成功
+                // 关闭modal
+                $('#new-markdown-modal').modal('hide');
+                // 刷新页面
+                show_mds();
+                // 新建完成，打开新建的文档
+                openMarkdown(mdname);
+            } else {
+                alert(ret["msg"]);
+            }
+
+        });
+        // 发送请求
+        xhr.open('POST', `/new-markdown/${groupname}/${mdname}`);
+        xhr.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+        xhr.send(content);
+    }
+    $("#home").click(() => {
+        location.href = "/user_main.html";
+    });
+    $("#toup").click(() => {
+        editor.scrollTop(0);
+    });
+</script>
+
+<script>
+    $('#mdmodal').on('show.bs.modal', function () {
+        // 加载markdown
+        $("#mdshow").val(toMarkdown());
+    });
+    $("#mdshow-ok").click(() => {
+        // 确认修改markdown
+        var md = $("#mdshow").val();
+        draw(md);
+        $('#mdmodal').modal('hide');
+    });
+    show_mds();
+</script>
 
 </html>

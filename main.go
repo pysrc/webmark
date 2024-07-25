@@ -152,7 +152,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else {
-		AuthError(w, r)
+		http.Redirect(w, r, "login.html", http.StatusSeeOther)
 	}
 }
 
@@ -621,7 +621,7 @@ func clean_files(groupname, username, markdown string) bool {
 }
 
 func AuthError(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/index.html", http.StatusSeeOther)
+	http.Redirect(w, r, "/login.html", http.StatusSeeOther)
 }
 
 func Auth(w http.ResponseWriter, r *http.Request) (bool, *UserSession) {
@@ -675,20 +675,25 @@ type SearchInput struct {
 }
 
 func search_detail(w http.ResponseWriter, r *http.Request) {
-	var suc, session = Auth(w, r)
-	if !suc {
-		return
-	}
+	var input SearchInput
 	rb, err := io.ReadAll(r.Body)
 	if err != nil {
 		return
 	}
-	var input SearchInput
 	err = json.Unmarshal(rb, &input)
 	if err != nil {
 		return
 	}
-	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, session.Name, input.Group)
+	var username = "public"
+	if input.Group != "public" {
+		var suc, session = Auth(w, r)
+		if !suc {
+			return
+		}
+		username = session.Name
+	}
+
+	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, username, input.Group)
 	var baseSearchEngine = search.LowSearch{
 		BasePath: basePath,
 	}
@@ -696,11 +701,123 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 	// 数据是否创建索引检测
 
 	if len(baseSearchEngine.Search("")) == 0 {
-		MakeGroupIndex(session.Name, input.Group, &baseSearchEngine)
+		MakeGroupIndex(username, input.Group, &baseSearchEngine)
 	}
 	res := baseSearchEngine.Search(input.Query)
 	w.Header().Add("content-type", "application/json")
 	bts, _ := json.Marshal(res)
+	w.Write(bts)
+}
+
+func file_copy(src, dst string) {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return
+	}
+}
+
+func copy_dir(src string, dest string) error {
+	// 读取源目录
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	// 创建目标目录
+	err = os.MkdirAll(dest, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		destPath := filepath.Join(dest, entry.Name())
+
+		// 判断是否是文件夹
+		if entry.IsDir() {
+			err = copy_dir(srcPath, destPath)
+			if err != nil {
+				return err
+			}
+		} else {
+			// 否则复制文件
+			input, err := os.Open(srcPath)
+			if err != nil {
+				return err
+			}
+			defer input.Close()
+
+			output, err := os.Create(destPath)
+			if err != nil {
+				return err
+			}
+			defer output.Close()
+
+			_, err = io.Copy(output, input)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// 允许公开访问
+func enable_public(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+	w.Header().Add("content-type", "application/json")
+	var groupname = r.PathValue("groupname")
+	var markdownname = r.PathValue("markdownname")
+	group_check(session.Name, groupname)
+	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname + ".md"
+	_, err := os.Stat(fname)
+	if os.IsNotExist(err) {
+		bts, _ := json.Marshal(map[string]any{
+			"success": false,
+			"msg":     "当前文件不存在",
+		})
+		w.Write(bts)
+		return
+	}
+	group_check("public", "public")
+	var pub_name = DATA_DIR + "/public/public/" + markdownname + ".md"
+	// 复制文件
+	file_copy(fname, pub_name)
+	// 复制文件夹
+	_, err = os.Stat(DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname)
+	if os.IsExist(err) {
+		copy_dir(DATA_DIR+"/"+session.Name+"/"+groupname+"/"+markdownname, DATA_DIR+"/public/public/"+markdownname)
+	}
+	// 刷索引
+	fb, err := os.ReadFile(pub_name)
+	if err != nil {
+		bts, _ := json.Marshal(map[string]any{
+			"success": false,
+			"msg":     "公开失败",
+		})
+		w.Write(bts)
+		return
+	}
+	MakeIndex("public", "public", markdownname, string(fb))
+	bts, _ := json.Marshal(map[string]bool{
+		"success": true,
+	})
 	w.Write(bts)
 }
 
@@ -764,6 +881,11 @@ func DeleteIndex(user, group, title string) {
 
 func auth_markdown(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 公共的
+		if strings.HasPrefix(r.URL.Path, "/markdown/public") {
+			http.StripPrefix("/markdown", next).ServeHTTP(w, r)
+		}
+		// 登录的
 		if suc, _ := Auth(w, r); suc {
 			http.StripPrefix("/markdown", next).ServeHTTP(w, r)
 		}
@@ -774,6 +896,7 @@ func auth_static(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" ||
 			r.URL.Path == "/index.html" ||
+			r.URL.Path == "/login.html" ||
 			strings.HasSuffix(r.URL.Path, ".css") ||
 			strings.HasSuffix(r.URL.Path, ".js") {
 			http.StripPrefix("/", next).ServeHTTP(w, r)
@@ -965,6 +1088,7 @@ func main() {
 	http.HandleFunc("/new-user", new_user)
 	http.HandleFunc("/export/", export)
 	http.HandleFunc("/search-detail", search_detail)
+	http.HandleFunc("/enable-public/{groupname}/{markdownname}", enable_public)
 	server := http.Server{Addr: bind}
 	server.ListenAndServe()
 }

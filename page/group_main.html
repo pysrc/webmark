@@ -162,6 +162,7 @@
                             <button id="edit-btn" type="button" class="btn btn-default">编辑</button>
                             <button type="button" class="btn btn-default" data-toggle="modal" data-target="#password-modal">加密/解密</button>
                             <button id="save-btn" type="button" class="btn btn-primary">保存</button>
+                            <button id="public-btn" type="button" class="btn btn-default">公开</button>
                             <button id="export-md-btn" type="button" class="btn btn-default">导出</button>
                             <button id="delete-btn" type="button" class="btn btn-danger">删除</button>
                         </div>
@@ -459,6 +460,28 @@
     });
     $("#export-md-btn").click(() => {
         window.open(`/export/${groupname}/${currentMarkdown}`);
+    });
+    $("#public-btn").click(() => {
+        if (window.confirm("确认公开吗？")) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", `/enable-public/${groupname}/${currentMarkdown}`);
+            xhr.addEventListener('load', (e) => {
+                if(xhr.status != 200) {
+                    alter(`http status: ${xhr.status}`)
+                    return;
+                }
+                var ret = JSON.parse(xhr.responseText);
+                if(ret['success']) {
+                    // 显示成功提示
+                    var dom = $('<div class="alert alert-success">公开成功！</div>');
+                    $("#info").append(dom);
+                    window.setTimeout(function () { dom.remove(); }, 2000);
+                } else {
+                    alert(ret["msg"]);
+                }
+            });
+            xhr.send();
+        }
     });
     function savemd() {
         var xhr = new XMLHttpRequest();
