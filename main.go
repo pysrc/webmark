@@ -897,6 +897,9 @@ func auth_static(next http.Handler) http.Handler {
 		if r.URL.Path == "/" ||
 			r.URL.Path == "/index.html" ||
 			r.URL.Path == "/login.html" ||
+			strings.HasSuffix(r.URL.Path, ".woff") ||
+			strings.HasSuffix(r.URL.Path, ".woff2") ||
+			strings.HasSuffix(r.URL.Path, ".ttf") ||
 			strings.HasSuffix(r.URL.Path, ".css") ||
 			strings.HasSuffix(r.URL.Path, ".js") {
 			http.StripPrefix("/", next).ServeHTTP(w, r)
