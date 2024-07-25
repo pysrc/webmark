@@ -709,7 +709,7 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 	w.Write(bts)
 }
 
-func file_copy(src, dst string) {
+func copy_file(src, dst string) {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return
@@ -785,8 +785,9 @@ func enable_public(w http.ResponseWriter, r *http.Request) {
 	var groupname = r.PathValue("groupname")
 	var markdownname = r.PathValue("markdownname")
 	group_check(session.Name, groupname)
-	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname + ".md"
-	_, err := os.Stat(fname)
+	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname
+	var fname_md = fname + ".md"
+	_, err := os.Stat(fname_md)
 	if os.IsNotExist(err) {
 		bts, _ := json.Marshal(map[string]any{
 			"success": false,
@@ -795,17 +796,26 @@ func enable_public(w http.ResponseWriter, r *http.Request) {
 		w.Write(bts)
 		return
 	}
+	var pub_name = DATA_DIR + "/public/public/" + markdownname
+	var pub_name_md = pub_name + ".md"
+	// 删除原文章
+	os.RemoveAll(pub_name)
+	os.Remove(pub_name_md)
+	DeleteIndex("public", "public", markdownname)
+
+	// 新增
 	group_check("public", "public")
-	var pub_name = DATA_DIR + "/public/public/" + markdownname + ".md"
+
 	// 复制文件
-	file_copy(fname, pub_name)
+	copy_file(fname_md, pub_name_md)
 	// 复制文件夹
-	_, err = os.Stat(DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname)
-	if os.IsExist(err) {
-		copy_dir(DATA_DIR+"/"+session.Name+"/"+groupname+"/"+markdownname, DATA_DIR+"/public/public/"+markdownname)
+	_, err = os.Stat(fname)
+	if err == nil {
+		// 存在文件夹
+		copy_dir(fname, pub_name)
 	}
 	// 刷索引
-	fb, err := os.ReadFile(pub_name)
+	fb, err := os.ReadFile(pub_name_md)
 	if err != nil {
 		bts, _ := json.Marshal(map[string]any{
 			"success": false,
