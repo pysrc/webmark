@@ -273,6 +273,9 @@ const GroupMain = () => {
                     <Splitter>
                         <Splitter.Panel defaultSize="15%" max="70%">
                             <List
+                                style={{
+                                    height: '750px'
+                                }}
                                 dataSource={markdownList}
                                 renderItem={(item) => (
                                     <List.Item>
