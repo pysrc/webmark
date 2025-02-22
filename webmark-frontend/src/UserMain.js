@@ -8,7 +8,7 @@ import {
     SettingOutlined,
     LogoutOutlined
 } from '@ant-design/icons';
-import './UserMain.css';
+import './ComMain.css';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 

@@ -29,7 +29,7 @@ import 'bytemd/dist/index.css';
 import zhHans from 'bytemd/locales/zh_Hans.json';
 import gfm from '@bytemd/plugin-gfm';
 import gfmLocale from '@bytemd/plugin-gfm/locales/zh_Hans.json';
-import './GroupMain.css';
+import './ComMain.css';
 
 import CryptoJS from 'crypto-js';
 

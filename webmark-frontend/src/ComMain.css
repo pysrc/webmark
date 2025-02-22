@@ -1,0 +1,27 @@
+.layout {
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: #f8f8f8;
+    color: #777;
+    /* border-bottom: 1px solid #eaeaea; */
+}
+
+.content {
+    flex: 1;
+    padding: 24px;
+    background: #fff;
+}
+
+.bytemd {
+    height: 700px !important;
+}
+
+.bytemd-toolbar-icon.bytemd-tippy.bytemd-tippy-right:last-child {
+    display: none;
+}
