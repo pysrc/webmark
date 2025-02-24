@@ -3,10 +3,11 @@ import { Layout, Input, Button, Typography } from 'antd';
 import Cookies from 'js-cookie'; // 用于操作 cookie
 import UserMain from './UserMain';
 import GroupMain from './GroupMain';
+import ComFooter from './ComFooter';
 
 import { useNavigate, BrowserRouter, Route, Routes } from 'react-router-dom';
 
-const { Content } = Layout;
+const { Content, Footer } = Layout;
 const { Title } = Typography;
 
 // 登录页面组件
@@ -81,6 +82,9 @@ const LoginPage = () => {
                             </Button>
                         </div>
                     </Content>
+                    <Footer>
+                        <ComFooter />
+                    </Footer>
                 </Layout>}
         </>
     );

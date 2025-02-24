@@ -10,6 +10,8 @@ import {
     FileZipOutlined
 } from '@ant-design/icons';
 
+import ComFooter from './ComFooter';
+
 import { useSearchParams } from 'react-router-dom';
 import Cookies from 'js-cookie';
 
@@ -40,7 +42,7 @@ const headerStyle = {
     backgroundColor: '#fff',
 };
 
-const { Header, Content, Sider } = Layout;
+const { Header, Content, Sider, Footer } = Layout;
 
 const plugins = [
     gfm({
@@ -399,6 +401,9 @@ const GroupMain = () => {
                         </Splitter.Panel>
                     </Splitter>
                 </Content>
+                <Footer>
+                    <ComFooter />
+                </Footer>
             </Layout>
         </>
     );
