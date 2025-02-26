@@ -11,9 +11,8 @@ import {
 import './ComMain.css';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
-import ComFooter from './ComFooter';
 
-const { Header, Content, Footer } = Layout;
+const { Header, Content } = Layout;
 
 const UserMain = () => {
     const navigate = useNavigate();
@@ -260,9 +259,6 @@ const UserMain = () => {
                         ))}
                     </Flex>
                 </Content>
-                <Footer>
-                    <ComFooter />
-                </Footer>
             </Layout>
         </>
     );
