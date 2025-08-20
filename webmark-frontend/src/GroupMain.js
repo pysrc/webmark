@@ -47,7 +47,7 @@ const imagePrefix = (groupname) => {
     return {
         remark: (processor) =>
             processor.use(() => (tree) => {
-                visit(tree, 'image', (node) => {
+                visit(tree, ['image', 'link'], (node) => {
                     if (typeof node.url === 'string' && !node.url.startsWith('http')) {
                         node.url = `${groupname}/${node.url.replace(/^\/+/, '')}`;
                     }
