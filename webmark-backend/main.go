@@ -1154,9 +1154,11 @@ func auth_static(next http.Handler) http.Handler {
 			// }
 			// 登录的
 			if suc, se := Auth(w, r); suc {
-				gn := Groupname(r)
-				p := "/" + se.Name + "/" + gn + r.URL.Path
+				// gn := Groupname(r)
+				// p := "/" + se.Name + "/" + gn + r.URL.Path
+				p := "/" + se.Name + "/" + r.URL.Path
 				r.URL.Path = p
+				fmt.Println(r.URL.Path)
 				next.ServeHTTP(w, r)
 			}
 			http.StripPrefix("/", next).ServeHTTP(w, r)

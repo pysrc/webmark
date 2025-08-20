@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layout, Input, Button, Space, Modal, Splitter, List, message, Popconfirm } from 'antd';
 import {
     AppstoreAddOutlined,
@@ -11,7 +11,6 @@ import {
 } from '@ant-design/icons';
 
 import { useSearchParams } from 'react-router-dom';
-import Cookies from 'js-cookie';
 
 import math from '@bytemd/plugin-math';
 import mathLocale from '@bytemd/plugin-math/locales/zh_Hans.json';
@@ -75,6 +74,16 @@ const GroupMain = () => {
     const [showEditor, setShowEditor] = useState(false);
     const [messageApi, contextHolder] = message.useMessage();
 
+    const textRef = useRef(mdvalue);
+    const nameRef = useRef(mdname);
+
+    useEffect(() => {
+        textRef.current = mdvalue; // 每次渲染时更新 ref
+    }, [mdvalue]);
+    useEffect(() => {
+        nameRef.current = mdname; // 每次渲染时更新 ref
+    }, [mdname]);
+
     const fetchMarkdowns = () => {
 
         fetch('/search-detail', {
@@ -105,19 +114,13 @@ const GroupMain = () => {
 
     useEffect(fetchMarkdowns, []);
 
-    useEffect(() => {
-        Cookies.set("groupname", groupname);
-    }, []);
-
     const saveMarkdown = () => {
-        const mdname = localStorage.getItem("mdname");
-        const mdvalues = localStorage.getItem("mdvalue");
-        fetch(`/update-markdown/${groupname}/${mdname}`, {
+        fetch(`/update-markdown/${groupname}/${nameRef.current}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/text'
             },
-            body: mdvalues
+            body: textRef.current
         })
             .then(response => response.json())
             .then(d => {
@@ -162,9 +165,8 @@ const GroupMain = () => {
         if(!mdname) {
             return;
         }
-        localStorage.setItem("mdname", mdname);
         setMdName(mdname);
-        fetch(`/${mdname}.md`, {
+        fetch(`/${groupname}/${mdname}.md`, {
             method: 'GET',
             headers: {
                 'Cache-Control': 'no-cache'
@@ -177,8 +179,6 @@ const GroupMain = () => {
             });
     };
     const deleteConfirm = (e) => {
-        const mdname = localStorage.getItem("mdname");
-        localStorage.removeItem("mdname");
         setMdName("");
         fetch(`/del-markdown/${groupname}/${mdname}`, {
             method: 'DELETE'
@@ -201,12 +201,10 @@ const GroupMain = () => {
     const encrypt = () => {
         var _enmd = CryptoJS.AES.encrypt(mdvalue, cryptoPwd).toString();
         setMdValue(_enmd);
-        localStorage.setItem("mdvalue", _enmd);
     };
     const decrypt = () => {
         var _demd = CryptoJS.AES.decrypt(mdvalue, cryptoPwd).toString(CryptoJS.enc.Utf8);
         setMdValue(_demd);
-        localStorage.setItem("mdvalue", _demd);
     };
     return (
         <>
@@ -320,7 +318,6 @@ const GroupMain = () => {
                                             plugins={plugins}
                                             onChange={(v) => {
                                                 setMdValue(v);
-                                                localStorage.setItem("mdvalue", v);
                                             }}
                                             editorConfig={{
                                                 lineNumbers: true,
@@ -338,7 +335,6 @@ const GroupMain = () => {
                                                 if (!files) {
                                                     return;
                                                 }
-                                                const mdname = localStorage.getItem("mdname");
                                                 // 创建FormData对象，用于将文件上传到服务器
                                                 var formData = new FormData();
                                                 var image_names = [];
