@@ -29,6 +29,7 @@ import zhHans from 'bytemd/locales/zh_Hans.json';
 import gfm from '@bytemd/plugin-gfm';
 import gfmLocale from '@bytemd/plugin-gfm/locales/zh_Hans.json';
 import './ComMain.css';
+import { visit } from 'unist-util-visit'
 
 import CryptoJS from 'crypto-js';
 
@@ -41,23 +42,135 @@ const headerStyle = {
 
 const { Header, Content, Sider } = Layout;
 
-const plugins = [
-    gfm({
-        locale: gfmLocale
-    }),
-    highlight(),
-    math({
-        locale: mathLocale,
-        katexOptions: { output: 'mathml' },
-    }),
-    mermaid({
-        locale: mermaidLocale
-    }),
-]
+
+const imagePrefix = (groupname) => {
+    return {
+        remark: (processor) =>
+            processor.use(() => (tree) => {
+                visit(tree, 'image', (node) => {
+                    if (typeof node.url === 'string' && !node.url.startsWith('http')) {
+                        node.url = `${groupname}/${node.url.replace(/^\/+/, '')}`;
+                    }
+                });
+            }),
+    };
+}
+
+const uploadPlugin = ({ onUpload }) => {
+    return {
+        editorEffect: ({ editor }) => {
+            const cm = editor
+            const wrapper = cm.getWrapperElement()
+
+            const prevent = (e) => {
+                e.preventDefault()
+                e.stopPropagation()
+            }
+
+            // 拖拽上传
+            const handleDrop = async (e) => {
+                prevent(e)
+                const files = Array.from(e.dataTransfer.files)
+                for (const file of files) {
+                    const url = await onUpload(file)
+                    let markdown =
+                        file.type.startsWith('image/')
+                            ? `![](${url})`
+                            : `[${file.name}](${url})`
+                    cm.replaceSelection(markdown + '\n')
+                }
+            }
+
+            // 粘贴上传
+            const handlePaste = async (e) => {
+                const items = e.clipboardData.items
+                if (!items) return
+
+                for (const item of items) {
+                    if (item.kind === 'file') {
+                        const file = item.getAsFile()
+                        if (!file) continue
+
+                        const url = await onUpload(file)
+                        let markdown =
+                            file.type.startsWith('image/')
+                                ? `![](${url})`
+                                : `[${file.name}](${url})`
+                        cm.replaceSelection(markdown + '\n')
+                        e.preventDefault()
+                    }
+                }
+            }
+
+            wrapper.addEventListener('dragover', prevent)
+            wrapper.addEventListener('drop', handleDrop)
+            wrapper.addEventListener('paste', handlePaste)
+
+            // 清理函数
+            return () => {
+                wrapper.removeEventListener('dragover', prevent)
+                wrapper.removeEventListener('drop', handleDrop)
+                wrapper.removeEventListener('paste', handlePaste)
+            }
+        },
+    };
+}
 
 const GroupMain = () => {
     const [searchParams] = useSearchParams();
     const groupname = searchParams.get('groupname');
+    const plugins = [
+        gfm({
+            locale: gfmLocale
+        }),
+        highlight(),
+        math({
+            locale: mathLocale,
+            katexOptions: { output: 'mathml' },
+        }),
+        mermaid({
+            locale: mermaidLocale
+        }),
+        imagePrefix(groupname),
+        uploadPlugin({
+            onUpload: (file) => new Promise((resolve, _) => {
+                if (!file) {
+                    return;
+                }
+                // 创建FormData对象，用于将文件上传到服务器
+                var formData = new FormData();
+                // 将拖拽的文件添加到FormData对象中
+                var name = `${Date.now()}_${file.name}`;
+                formData.append('file', file, name);
+                // 创建XMLHttpRequest对象，用于发送请求
+                var xhr = new XMLHttpRequest();
+                // 监听上传进度
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        var percent = (e.loaded / e.total) * 100;
+                        percent = parseInt(percent);
+                        console.log('上传进度：' + percent + '%');
+                    }
+                });
+                // 监听上传完成事件
+                xhr.addEventListener('load', (e) => {
+                    console.log('上传完成');
+                    resolve(`${mdname}/${name}`);
+                });
+                // 监听上传出错事件
+                xhr.addEventListener('error', (e) => {
+                    console.log('上传出错');
+                });
+                // 监听上传取消事件
+                xhr.addEventListener('abort', (e) => {
+                    console.log('上传取消');
+                });
+                // 发送请求
+                xhr.open('POST', `/upload/${groupname}/${mdname}`);
+                xhr.send(formData);
+            }),
+        }),
+    ]
     const [keywords, setKeywords] = useState("");
     const [markdownList, setMarkdownList] = useState([]);
     // 新建分组模态框start
@@ -162,7 +275,7 @@ const GroupMain = () => {
             });
     }
     const openMarkdown = (mdname) => () => {
-        if(!mdname) {
+        if (!mdname) {
             return;
         }
         setMdName(mdname);
@@ -331,64 +444,64 @@ const GroupMain = () => {
                                                 },
                                             }}
                                             locale={zhHans}
-                                            uploadImages={(files) => new Promise((resolve, _) => {
-                                                if (!files) {
-                                                    return;
-                                                }
-                                                // 创建FormData对象，用于将文件上传到服务器
-                                                var formData = new FormData();
-                                                var image_names = [];
-                                                // var file_names = [];
-                                                // 将拖拽的文件添加到FormData对象中
-                                                for (var i = 0; i < files.length; i++) {
-                                                    var name = `${Date.now()}_${files[i].name}`;
-                                                    formData.append('file', files[i], name);
-                                                    if (files[i].type.indexOf('image') !== -1) {
-                                                        image_names.push(name);
-                                                    }
-                                                    // else {
-                                                    //     file_names.push(name);
-                                                    // }
-                                                }
-                                                // 创建XMLHttpRequest对象，用于发送请求
-                                                var xhr = new XMLHttpRequest();
-                                                // 监听上传进度
-                                                xhr.upload.addEventListener('progress', (e) => {
-                                                    if (e.lengthComputable) {
-                                                        var percent = (e.loaded / e.total) * 100;
-                                                        percent = parseInt(percent);
-                                                        console.log('上传进度：' + percent + '%');
-                                                    }
-                                                });
-                                                // 监听上传完成事件
-                                                xhr.addEventListener('load', (e) => {
-                                                    console.log('上传完成');
-                                                    let ri = [];
-                                                    for (var i = 0; i < image_names.length; i++) {
-                                                        ri.push({
-                                                            url: `${mdname}/${image_names[i]}`
-                                                        });
-                                                    }
+                                        // uploadImages={(files) => new Promise((resolve, _) => {
+                                        //     if (!files) {
+                                        //         return;
+                                        //     }
+                                        //     // 创建FormData对象，用于将文件上传到服务器
+                                        //     var formData = new FormData();
+                                        //     var image_names = [];
+                                        //     // var file_names = [];
+                                        //     // 将拖拽的文件添加到FormData对象中
+                                        //     for (var i = 0; i < files.length; i++) {
+                                        //         var name = `${Date.now()}_${files[i].name}`;
+                                        //         formData.append('file', files[i], name);
+                                        //         if (files[i].type.indexOf('image') !== -1) {
+                                        //             image_names.push(name);
+                                        //         }
+                                        //         // else {
+                                        //         //     file_names.push(name);
+                                        //         // }
+                                        //     }
+                                        //     // 创建XMLHttpRequest对象，用于发送请求
+                                        //     var xhr = new XMLHttpRequest();
+                                        //     // 监听上传进度
+                                        //     xhr.upload.addEventListener('progress', (e) => {
+                                        //         if (e.lengthComputable) {
+                                        //             var percent = (e.loaded / e.total) * 100;
+                                        //             percent = parseInt(percent);
+                                        //             console.log('上传进度：' + percent + '%');
+                                        //         }
+                                        //     });
+                                        //     // 监听上传完成事件
+                                        //     xhr.addEventListener('load', (e) => {
+                                        //         console.log('上传完成');
+                                        //         let ri = [];
+                                        //         for (var i = 0; i < image_names.length; i++) {
+                                        //             ri.push({
+                                        //                 url: `${mdname}/${image_names[i]}`
+                                        //             });
+                                        //         }
 
-                                                    // for (var i = 0; i < file_names.length; i++) {
-                                                    //     ri.push({
-                                                    //         url: `${mdname}/${file_names[i]}`
-                                                    //     });
-                                                    // }
-                                                    resolve(ri);
-                                                });
-                                                // 监听上传出错事件
-                                                xhr.addEventListener('error', (e) => {
-                                                    console.log('上传出错');
-                                                });
-                                                // 监听上传取消事件
-                                                xhr.addEventListener('abort', (e) => {
-                                                    console.log('上传取消');
-                                                });
-                                                // 发送请求
-                                                xhr.open('POST', `/upload/${groupname}/${mdname}`);
-                                                xhr.send(formData);
-                                            })}
+                                        //         // for (var i = 0; i < file_names.length; i++) {
+                                        //         //     ri.push({
+                                        //         //         url: `${mdname}/${file_names[i]}`
+                                        //         //     });
+                                        //         // }
+                                        //         resolve(ri);
+                                        //     });
+                                        //     // 监听上传出错事件
+                                        //     xhr.addEventListener('error', (e) => {
+                                        //         console.log('上传出错');
+                                        //     });
+                                        //     // 监听上传取消事件
+                                        //     xhr.addEventListener('abort', (e) => {
+                                        //         console.log('上传取消');
+                                        //     });
+                                        //     // 发送请求
+                                        //     xhr.open('POST', `/upload/${groupname}/${mdname}`);
+                                        //     xhr.send(formData);
+                                        // })}
                                         />
                                     </Content>
                                 </Layout> : <></>}
