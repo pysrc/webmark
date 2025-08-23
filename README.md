@@ -19,3 +19,9 @@ root/root
 ```shell
 ./webmark.exe -genpass -gen-password mypassword
 ```
+
+## 更新日志
+
+### 2025-08-23
+
+1. 添加代码域复制按钮

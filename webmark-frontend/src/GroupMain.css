@@ -1,0 +1,47 @@
+/* 块级代码按钮 */
+.with-copy {
+  position: relative;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,0,0,0.6);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: #fff;
+  display: none; /* 默认隐藏 */
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: background 0.2s ease;
+}
+
+.with-copy:hover .copy-btn {
+  display: inline-flex; /* 悬浮显示 */
+}
+
+/* 行内代码按钮 */
+.inline-code-wrapper {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.inline-copy-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #888;
+  padding: 0 2px;
+  display: none; /* 默认隐藏 */
+}
+
+.inline-code-wrapper:hover .inline-copy-btn {
+  display: inline-flex; /* 悬浮显示 */
+  color: #000;
+}

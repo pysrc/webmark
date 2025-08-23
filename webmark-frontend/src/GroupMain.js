@@ -1,3 +1,4 @@
+import { h } from 'hastscript';
 import { useState, useEffect, useRef } from 'react';
 import { Layout, Input, Button, Space, Modal, Splitter, List, message, Popconfirm } from 'antd';
 import {
@@ -32,6 +33,7 @@ import './ComMain.css';
 import { visit } from 'unist-util-visit'
 
 import CryptoJS from 'crypto-js';
+import './GroupMain.css';
 
 const headerStyle = {
     height: 60,
@@ -116,6 +118,60 @@ const uploadPlugin = ({ onUpload }) => {
     };
 }
 
+const codeCopyPlugin = () => {
+    return {
+        rehype: (processor) => {
+            return processor.use(() => (tree) => {
+                visit(tree, 'element', (node, index, parent) => {
+                    // 情况1：代码块 <pre><code>
+                    if (node.tagName === 'pre' && node.children?.[0]?.tagName === 'code') {
+                        const codeNode = node.children[0];
+                        const rawCode = codeNode.children.map((child) => child.value || '').join('');
+
+                        node.children.push(
+                            h(
+                                'button',
+                                {
+                                    type: 'button',
+                                    class: 'copy-btn',
+                                    'data-code': rawCode,
+                                    title: '复制代码',
+                                },
+                                '📋'
+                            )
+                        );
+                        node.properties.className = (node.properties.className || []).concat('with-copy');
+                    }
+
+                    // 情况2：行内代码 <code>
+                    if (node.tagName === 'code' && parent?.tagName !== 'pre') {
+                        const rawCode = node.children.map((child) => child.value || '').join('');
+                        // 包一层 span，让复制按钮能绝对定位
+                        parent.children[index] = h(
+                            'span',
+                            { class: 'inline-code-wrapper' },
+                            [
+                                node, // 原始 <code>
+                                h(
+                                    'button',
+                                    {
+                                        type: 'button',
+                                        class: 'inline-copy-btn',
+                                        'data-code': rawCode,
+                                        title: '复制代码',
+                                    },
+                                    '📋'
+                                ),
+                            ]
+                        );
+                    }
+                });
+            });
+        },
+    };
+}
+
+
 const GroupMain = () => {
     const [searchParams] = useSearchParams();
     const groupname = searchParams.get('groupname');
@@ -123,6 +179,7 @@ const GroupMain = () => {
         gfm({
             locale: gfmLocale
         }),
+        codeCopyPlugin(), // 代码复制插件
         highlight(),
         math({
             locale: mathLocale,
@@ -196,6 +253,25 @@ const GroupMain = () => {
     useEffect(() => {
         nameRef.current = mdname; // 每次渲染时更新 ref
     }, [mdname]);
+
+    useEffect(() => {
+        const handler = (e) => {
+            const btn = e.target.closest('.copy-btn, .inline-copy-btn');
+            if (btn) {
+                const code = btn.getAttribute('data-code');
+                navigator.clipboard.writeText(code).then(() => {
+                    // 切换成 ✅ 图标
+                    btn.textContent = '✅';
+                    setTimeout(() => {
+                        btn.textContent = '📋';
+                    }, 1500);
+                });
+            }
+        };
+
+        document.addEventListener('click', handler);
+        return () => document.removeEventListener('click', handler);
+    }, [mdvalue]);
 
     const fetchMarkdowns = () => {
 
@@ -444,64 +520,6 @@ const GroupMain = () => {
                                                 },
                                             }}
                                             locale={zhHans}
-                                        // uploadImages={(files) => new Promise((resolve, _) => {
-                                        //     if (!files) {
-                                        //         return;
-                                        //     }
-                                        //     // 创建FormData对象，用于将文件上传到服务器
-                                        //     var formData = new FormData();
-                                        //     var image_names = [];
-                                        //     // var file_names = [];
-                                        //     // 将拖拽的文件添加到FormData对象中
-                                        //     for (var i = 0; i < files.length; i++) {
-                                        //         var name = `${Date.now()}_${files[i].name}`;
-                                        //         formData.append('file', files[i], name);
-                                        //         if (files[i].type.indexOf('image') !== -1) {
-                                        //             image_names.push(name);
-                                        //         }
-                                        //         // else {
-                                        //         //     file_names.push(name);
-                                        //         // }
-                                        //     }
-                                        //     // 创建XMLHttpRequest对象，用于发送请求
-                                        //     var xhr = new XMLHttpRequest();
-                                        //     // 监听上传进度
-                                        //     xhr.upload.addEventListener('progress', (e) => {
-                                        //         if (e.lengthComputable) {
-                                        //             var percent = (e.loaded / e.total) * 100;
-                                        //             percent = parseInt(percent);
-                                        //             console.log('上传进度：' + percent + '%');
-                                        //         }
-                                        //     });
-                                        //     // 监听上传完成事件
-                                        //     xhr.addEventListener('load', (e) => {
-                                        //         console.log('上传完成');
-                                        //         let ri = [];
-                                        //         for (var i = 0; i < image_names.length; i++) {
-                                        //             ri.push({
-                                        //                 url: `${mdname}/${image_names[i]}`
-                                        //             });
-                                        //         }
-
-                                        //         // for (var i = 0; i < file_names.length; i++) {
-                                        //         //     ri.push({
-                                        //         //         url: `${mdname}/${file_names[i]}`
-                                        //         //     });
-                                        //         // }
-                                        //         resolve(ri);
-                                        //     });
-                                        //     // 监听上传出错事件
-                                        //     xhr.addEventListener('error', (e) => {
-                                        //         console.log('上传出错');
-                                        //     });
-                                        //     // 监听上传取消事件
-                                        //     xhr.addEventListener('abort', (e) => {
-                                        //         console.log('上传取消');
-                                        //     });
-                                        //     // 发送请求
-                                        //     xhr.open('POST', `/upload/${groupname}/${mdname}`);
-                                        //     xhr.send(formData);
-                                        // })}
                                         />
                                     </Content>
                                 </Layout> : <></>}
