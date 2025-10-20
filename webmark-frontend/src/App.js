@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Layout, Input, Button, Typography } from 'antd';
 import Cookies from 'js-cookie'; // 用于操作 cookie
-import UserMain from './UserMain';
-import GroupMain from './GroupMain';
 
 import { useNavigate, BrowserRouter, Route, Routes } from 'react-router-dom';
 
 const { Content } = Layout;
 const { Title } = Typography;
+
+const UserMain = lazy(() => import('./UserMain'));
+const GroupMain = lazy(() => import('./GroupMain'));
 
 // 登录页面组件
 const LoginPage = () => {
@@ -91,8 +92,8 @@ const App = () => {
     return (<BrowserRouter>
         <Routes>
             <Route path="/" element={<LoginPage />} />
-            <Route path="/user-main" element={<UserMain />} />
-            <Route path='/group-main' element={<GroupMain />} />
+            <Route path="/user-main" element={<Suspense> <UserMain /> </Suspense>} />
+            <Route path='/group-main' element={<Suspense> <GroupMain /> </Suspense>} />
         </Routes>
     </BrowserRouter>)
 };
