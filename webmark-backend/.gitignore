@@ -3,3 +3,5 @@ users/
 markdown/
 sessions/
 *.db
+*.db-shm
+*.db-wal
