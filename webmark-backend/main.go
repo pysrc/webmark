@@ -10,30 +10,41 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
-	"webmark/search"
 	"webmark/utils"
 
+	"database/sql"
+
+	"github.com/go-ego/gse"
+	_ "github.com/mattn/go-sqlite3" // 只注册驱动
 	"golang.org/x/crypto/bcrypt"
 )
 
 // 数据目录
 var DATA_DIR = "markdown"
 
-// 用户信息目录
-var USERS_DIR = "users"
-
 // 会话持久化保存目录
 var SESSIONS_DIR = "sessions"
 
 // 会话过期时间默认一个月
 var SessionExpires = 30 * 24 * time.Hour
+
+// 数据库连接
+var GDB *sql.DB
+
+var trim = "\"\n\t `1234567890|～~!@#$%^&*()_-+=,.<>/?':;；：[]{}\\！，￥…（）—《》。？【】、”“"
+
+var seg gse.Segmenter
+
+func init() {
+	seg.LoadDictEmbed("zh_s")
+}
 
 type UserInfo struct {
 	Name     string `json:"name"`     // 用户名
@@ -45,10 +56,6 @@ type UserSession struct {
 	Name      string
 	Expires   int64 // session过期时间
 }
-
-var user_map = make(map[string]*UserInfo)
-
-var session_map = make(map[string]*UserSession)
 
 func Uuid() string {
 	// 创建一个16字节的切片
@@ -101,29 +108,55 @@ const loginRecordTimeOut = 60 * 60 * 24
 
 func loginErr(username string) {
 	//认证失败
-	if r, ok := loginRecord[username]; ok {
-		r.LastTime = time.Now().Unix()
-		r.Count += 1
+	var last_time, login_count int64
+	err := GDB.QueryRow(`select last_time, login_count from login_record where username = ?`, username).Scan(&last_time, &login_count)
+	if err != nil || login_count == 0 {
+		// 插入
+		_, err := GDB.Exec(`insert into login_record(username, last_time, login_count) values (?, ?, ?)`, username, time.Now().Unix(), 1)
+		if err != nil {
+			log.Println(err)
+		}
+		return
 	} else {
-		loginRecord[username] = &LoginRecord{
-			LastTime: time.Now().Unix(),
-			Count:    1,
+		login_count += 1
+		_, err = GDB.Exec(`update login_record set last_time = ?, login_count = ? where username = ?`, time.Now().Unix(), login_count, username)
+		if err != nil {
+			log.Println(err)
 		}
 	}
 }
 
 // 登录记录清除
 func loginRecordClear() {
-	diff := time.Now().Unix() - loginRecordTimeOut
-	dels := make([]string, 0)
-	for username, r := range loginRecord {
-		if r.Count > 3 && diff > r.LastTime {
-			dels = append(dels, username)
+
+	rows, err := GDB.Query(`select username, last_time, login_count from login_record`)
+	if err != nil {
+		return
+	}
+
+	defer rows.Close()
+
+	var deletes = make([]string, 0)
+
+	for rows.Next() {
+		var username string
+		var last_time int64
+		var login_count int
+		err := rows.Scan(&username, &last_time, &login_count)
+		if err != nil {
+			continue
+		}
+		if login_count > 3 && time.Now().Unix()-last_time > loginRecordTimeOut {
+			// 删除
+			deletes = append(deletes, username)
 		}
 	}
-	for _, username := range dels {
-		delete(loginRecord, username)
-		fmt.Println("clear", username)
+	for _, username := range deletes {
+		log.Println("delete", username)
+		_, err = GDB.Exec(`delete from login_record where username = ?`, username)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
@@ -142,28 +175,38 @@ func login(w http.ResponseWriter, r *http.Request) {
 		}
 		// 假设认证通过
 		username := ul.Username
-		var usr = user_map[username]
-		if usr == nil {
+		var password string
+		err := GDB.QueryRow(`select password from user_info where username = ?`, username).Scan(&password)
+		if err != nil {
+			// 用户不存在
+			loginErr(username)
+			ErrorResponse(w, r)
+			return
+		}
+		if password == "" {
 			// 用户不存在
 			loginErr(username)
 			ErrorResponse(w, r)
 		} else {
 			// 验证用户是不是在恶意尝试
-			if ri, ok := loginRecord[username]; ok && ri.Count > 3 {
+			var last_time int64
+			var login_count int
+			err := GDB.QueryRow(`select last_time, login_count from login_record where username = ?`, username).Scan(&last_time, &login_count)
+			if err == nil && login_count > 3 {
 				ErrorResponseWithMsg(w, r, "fack off")
 				return
 			}
-			if Verify(usr.Password, ul.Password) {
+			if Verify(password, ul.Password) {
 				// 认证通过
 				var session_id = Uuid()
 				// 会话过期时间
 				var expires = time.Now().Add(SessionExpires)
-				session_map[session_id] = &UserSession{
-					SessionId: session_id,
-					Name:      username,
-					Expires:   expires.Unix(),
+
+				_, err := GDB.Exec(`insert into session_info(session_id, username, expire) values (?, ?, ?)`, session_id, username, expires.Unix())
+				if err != nil {
+					ErrorResponse(w, r)
+					return
 				}
-				session_save(session_id)
 				cookie_session_id := http.Cookie{Name: "session_id", Value: session_id, Expires: expires}
 				http.SetCookie(w, &cookie_session_id)
 				cookie_username := http.Cookie{Name: "username", Value: username, Expires: expires}
@@ -186,8 +229,11 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
-	delete(session_map, session.SessionId)
-	os.Remove(SESSIONS_DIR + "/" + session.SessionId + ".json")
+	_, err := GDB.Exec(`delete from session_info where session_id = ?`, session.SessionId)
+	if err != nil {
+		ErrorResponse(w, r)
+		return
+	}
 	SuccessResponse(w, r, "logout")
 }
 
@@ -197,16 +243,21 @@ func group_list(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
-	var fname = DATA_DIR + "/" + session.Name
-	dirs, err := utils.ListImmediateSubDirectories(fname)
+
+	rows, err := GDB.Query(`select groupname from docs_group where username = ? order by create_at desc`, session.Name)
 	if err != nil {
-		SuccessResponse(w, r, []string{})
+		ErrorResponse(w, r)
 		return
 	}
-
-	var res = make([]string, len(dirs))
-	for i, v := range dirs {
-		res[i] = v.Name()
+	defer rows.Close()
+	var res = make([]string, 0)
+	for rows.Next() {
+		var groupname string
+		err := rows.Scan(&groupname)
+		if err != nil {
+			continue
+		}
+		res = append(res, groupname)
 	}
 	SuccessResponse(w, r, res)
 }
@@ -260,9 +311,22 @@ func user_password_update(w http.ResponseWriter, r *http.Request) {
 
 	var oldp = cp.Old
 	var newp = cp.New
-	if Verify(user_map[session.Name].Password, oldp) {
-		user_map[session.Name].Password = Genpass(newp)
-		cache_save(session.Name)
+
+	var passwd string
+	err := GDB.QueryRow(`select password from user_info where username = ?`, session.Name).Scan(&passwd)
+	if err != nil {
+		log.Println("select user error", err)
+		ErrorResponse(w, r)
+		return
+	}
+	if Verify(passwd, oldp) {
+		passwd = Genpass(newp)
+		_, err := GDB.Exec(`update user_info set password = ? where username = ?`, passwd, session.Name)
+		if err != nil {
+			log.Println("update user error", err)
+			ErrorResponse(w, r)
+			return
+		}
 		SuccessResponse(w, r, true)
 	} else {
 		ErrorResponse(w, r)
@@ -399,6 +463,43 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 	var groupname = parts[0]
 	var fname = DATA_DIR + "/" + session.Name + "/" + groupname
 	os.RemoveAll(fname)
+	// 删除索引
+	_, err := GDB.Exec(`delete from docs_group where username = ? and groupname = ?`, session.Name, groupname)
+	if err != nil {
+		log.Println("delete group error", err)
+		ErrorResponse(w, r)
+		return
+	}
+	rows, err := GDB.Query(`select doc_id from docs_info where username = ? and groupname = ?`, session.Name, groupname)
+	if err != nil {
+		log.Println("delete docs_info error", err)
+		ErrorResponse(w, r)
+		return
+	}
+	defer rows.Close()
+	var doc_ids = make([]int, 0)
+	for rows.Next() {
+		var doc_id int
+		err := rows.Scan(&doc_id)
+		if err != nil {
+			continue
+		}
+		doc_ids = append(doc_ids, doc_id)
+	}
+	for _, doc_id := range doc_ids {
+		_, err := GDB.Exec(`delete from docs where rowid = ?`, doc_id)
+		if err != nil {
+			log.Println("delete docs error", err)
+			ErrorResponse(w, r)
+			return
+		}
+	}
+	_, err = GDB.Exec(`delete from docs_info where username = ? and groupname = ?`, session.Name, groupname)
+	if err != nil {
+		log.Println("delete docs_info error", err)
+		ErrorResponse(w, r)
+		return
+	}
 	SuccessResponse(w, r, true)
 }
 
@@ -413,43 +514,6 @@ func user_check(name string) {
 	}
 }
 
-// 保存缓存
-func cache_save(username string) {
-	byte, _ := json.MarshalIndent(user_map[username], "", "    ")
-	file, err := os.OpenFile(USERS_DIR+"/"+username+".json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer file.Close()
-	file.Write(byte)
-}
-
-// 会话保存
-func session_save(session_id string) {
-	byte, _ := json.MarshalIndent(session_map[session_id], "", "    ")
-	file, err := os.OpenFile(SESSIONS_DIR+"/"+session_id+".json", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer file.Close()
-	file.Write(byte)
-}
-
-// 会话加载
-func session_load(session_file_name string) {
-	content, err := os.ReadFile(SESSIONS_DIR + "/" + session_file_name)
-	if err != nil {
-		panic(err)
-	}
-	var session_info UserSession
-	if nil != json.Unmarshal(content, &session_info) {
-		panic("json parse error " + session_file_name)
-	}
-	session_map[strings.Split(session_file_name, ".")[0]] = &session_info
-}
-
 // 分组检测
 func group_check(username string, group string) {
 	user_check(username)
@@ -457,6 +521,20 @@ func group_check(username string, group string) {
 	if _, err := os.Stat(user_dir); os.IsNotExist(err) {
 		err := os.MkdirAll(user_dir, 0755)
 		if err != nil {
+			return
+		}
+	}
+	// 创建数据库记录
+	var count int
+	err := GDB.QueryRow(`select count(1) from docs_group where username = ? and groupname = ?`, username, group).Scan(&count)
+	if err != nil {
+		log.Println("group_check error", err)
+		return
+	}
+	if count == 0 {
+		_, err := GDB.Exec(`insert into docs_group (username, groupname, create_at) values (?, ?, ?)`, username, group, time.Now().Unix())
+		if err != nil {
+			log.Println("group_check error", err)
 			return
 		}
 	}
@@ -605,7 +683,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	// 从请求中获取文件
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		ErrorResponse(w, r)
 		return
 	}
@@ -614,7 +692,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	// 创建一个新文件
 	newFile, err := os.Create(work_dir + "/" + header.Filename)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		ErrorResponse(w, r)
 		return
 	}
@@ -623,7 +701,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	// 将上传的文件内容复制到新文件中
 	_, err = io.Copy(newFile, file)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		ErrorResponse(w, r)
 		return
 	}
@@ -716,24 +794,34 @@ func Auth(w http.ResponseWriter, r *http.Request) (bool, *UserSession) {
 		return false, nil
 	} else {
 		var session_id = cookie.Value
-		if session, ok := session_map[session_id]; ok {
-			// 校验session是否过期
-			if session.Expires < time.Now().Unix() {
-				delete(session_map, session_id)
-				os.Remove(SESSIONS_DIR + "/" + session_id + ".json")
-				return false, nil
-			}
-			if session == nil {
-				// 用户未登录
-				ErrorResponse(w, r)
-				return false, nil
-			} else {
-				// 用户已登录
-				return true, session
-			}
-		} else {
+		var username string
+		var expire int64
+		err = GDB.QueryRow(`select username, expire from session_info where session_id = ?`, session_id).Scan(&username, &expire)
+		if err != nil {
+			log.Println(err)
 			ErrorResponse(w, r)
 			return false, nil
+		}
+		// 校验session是否过期
+		if expire < time.Now().Unix() {
+			_, err = GDB.Exec(`delete from session_info where session_id = ?`, session_id)
+			if err != nil {
+				ErrorResponse(w, r)
+				return false, nil
+			}
+			return false, nil
+		}
+		if username == "" {
+			// 用户未登录
+			ErrorResponse(w, r)
+			return false, nil
+		} else {
+			// 用户已登录
+			return true, &UserSession{
+				Expires:   expire,
+				Name:      username,
+				SessionId: session_id,
+			}
 		}
 
 	}
@@ -752,317 +840,260 @@ func search_detail(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, r)
 		return
 	}
-	var username = "public"
-	if input.Group != "public" {
-		var suc, session = Auth(w, r)
-		if !suc {
-			return
-		}
-		username = session.Name
-	}
-
-	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, username, input.Group)
-	var baseSearchEngine = search.LowSearch{
-		BasePath: basePath,
-	}
-	baseSearchEngine.Init()
-	// 数据是否创建索引检测
-
-	if len(baseSearchEngine.Search("")) == 0 {
-		MakeGroupIndex(username, input.Group, &baseSearchEngine)
-	}
-	res := baseSearchEngine.Search(input.Query)
-	SuccessResponse(w, r, res)
-}
-
-func copy_file(src, dst string) {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return
-	}
-	defer dstFile.Close()
-
-	_, err = io.Copy(dstFile, srcFile)
-	if err != nil {
-		return
-	}
-}
-
-func copy_dir(src string, dest string) error {
-	// 读取源目录
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	// 创建目标目录
-	err = os.MkdirAll(dest, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		destPath := filepath.Join(dest, entry.Name())
-
-		// 判断是否是文件夹
-		if entry.IsDir() {
-			err = copy_dir(srcPath, destPath)
-			if err != nil {
-				return err
-			}
-		} else {
-			// 否则复制文件
-			input, err := os.Open(srcPath)
-			if err != nil {
-				return err
-			}
-			defer input.Close()
-
-			output, err := os.Create(destPath)
-			if err != nil {
-				return err
-			}
-			defer output.Close()
-
-			_, err = io.Copy(output, input)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// 允许公开访问
-func enable_public(w http.ResponseWriter, r *http.Request) {
 	var suc, session = Auth(w, r)
 	if !suc {
 		return
 	}
-	w.Header().Add("content-type", "application/json")
-	var groupname = r.PathValue("groupname")
-	var markdownname = r.PathValue("markdownname")
-	group_check(session.Name, groupname)
-	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname
-	var fname_md = fname + ".md"
-	_, err := os.Stat(fname_md)
-	if os.IsNotExist(err) {
-		bts, _ := json.Marshal(map[string]any{
-			"success": false,
-			"msg":     "当前文件不存在",
-		})
-		w.Write(bts)
-		return
+	sps := splitWord(input.Query)
+	sqls := `select di.title from docs d, docs_info di where di.doc_id = d.rowid and di.username = ? and di.groupname = ?`
+	q := strings.Join(sps, " AND ")
+	if len(sps) > 0 {
+		sqls += " AND d.docs MATCH ? order by di.create_at DESC"
+		rows, err := GDB.Query(sqls, session.Name, input.Group, q)
+		if err != nil {
+			ErrorResponse(w, r)
+			return
+		}
+		defer rows.Close()
+		var res = make([]string, 0)
+		for rows.Next() {
+			var title string
+			err := rows.Scan(&title)
+			if err != nil {
+				ErrorResponse(w, r)
+				return
+			}
+			res = append(res, title)
+		}
+		SuccessResponse(w, r, res)
+	} else {
+		sqls += " order by di.create_at DESC"
+		rows, err := GDB.Query(sqls, session.Name, input.Group)
+		if err != nil {
+			ErrorResponse(w, r)
+			return
+		}
+		defer rows.Close()
+		var res = make([]string, 0)
+		for rows.Next() {
+			var title string
+			err := rows.Scan(&title)
+			if err != nil {
+				ErrorResponse(w, r)
+				return
+			}
+			res = append(res, title)
+		}
+		SuccessResponse(w, r, res)
 	}
-	var pub_name = DATA_DIR + "/public/public/" + markdownname
-	var pub_name_md = pub_name + ".md"
-	// 删除原文章
-	os.RemoveAll(pub_name)
-	os.Remove(pub_name_md)
-	DeleteIndex("public", "public", markdownname)
-
-	// 新增
-	group_check("public", "public")
-
-	// 复制文件
-	copy_file(fname_md, pub_name_md)
-	// 复制文件夹
-	_, err = os.Stat(fname)
-	if err == nil {
-		// 存在文件夹
-		copy_dir(fname, pub_name)
-	}
-	// 刷索引
-	fb, err := os.ReadFile(pub_name_md)
-	if err != nil {
-		bts, _ := json.Marshal(map[string]any{
-			"success": false,
-			"msg":     "公开失败",
-		})
-		w.Write(bts)
-		return
-	}
-	MakeIndex("public", "public", markdownname, string(fb))
-	bts, _ := json.Marshal(map[string]bool{
-		"success": true,
-	})
-	w.Write(bts)
 }
 
-// 建组索引
-func MakeGroupIndex(user, group string, baseSearchEngine *search.LowSearch) {
-	// 列出组内所有的文档
-	files, err := os.ReadDir(fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	// 按照文件的 ModTime (创建日期) 排序
-	sort.Slice(files, func(i, j int) bool {
-		ii, _ := files[i].Info()
-		ji, _ := files[j].Info()
-		return ii.ModTime().Before(ji.ModTime())
-	})
-
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".md") {
-			// 建索引
-			f, err := os.OpenFile(fmt.Sprintf("%s/%s/%s/%s", DATA_DIR, user, group, file.Name()), os.O_RDONLY, 0644)
-			if err != nil {
-				return
-			}
-			bt, err := io.ReadAll(f)
-			if err != nil {
-				return
-			}
-			f.Close()
-			baseSearchEngine.InsertOrUpdate(strings.Split(file.Name(), ".")[0], string(bt))
+// 分词
+func splitWord(content string) []string {
+	// 全转小写
+	content = strings.ToLower(content)
+	// 分词
+	segments := seg.CutSearch(content, true)
+	// 去重
+	var tm = make(map[string]struct{}, len(segments))
+	for _, s := range segments {
+		k := strings.Trim(s, trim)
+		if k == "" {
+			continue
 		}
+		if len(k) > 10 {
+			continue
+		}
+		tm[s] = struct{}{}
 	}
+	sps := make([]string, 0, len(tm))
+	for k := range tm {
+		sps = append(sps, k)
+	}
+	return sps
 }
 
 // 建索引&刷新索引
 func MakeIndex(user, group, title, content string) {
-	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group)
-	var baseSearchEngine = search.LowSearch{
-		BasePath: basePath,
-	}
-	baseSearchEngine.Init()
-	// 数据是否创建索引检测
-	if len(baseSearchEngine.Search("")) == 0 {
-		MakeGroupIndex(user, group, &baseSearchEngine)
+	// 判断文本是否存在
+	var doc_id int
+	err := GDB.QueryRow(`select doc_id from docs_info where groupname = ? and username = ? and title = ?`, group, user, title).Scan(&doc_id)
+	if err != nil && doc_id == 0 {
+		// 插入文档描述
+		_, err = GDB.Exec(`insert into docs_info(groupname, title, username, create_at) values (?, ?, ?, ?)`, group, title, user, time.Now().Unix())
+		if err != nil {
+			log.Println("MakeIndex insert error", err)
+			return
+		}
+		err = GDB.QueryRow(`select doc_id from docs_info where groupname = ? and username = ? and title = ?`, group, user, title).Scan(&doc_id)
+		if err != nil {
+			log.Println("MakeIndex query error", err)
+			return
+		}
+		// 新增索引
+		// 分词
+		tt := splitWord(title)
+		tc := splitWord(content)
+		_, err = GDB.Exec(`insert into docs(rowid, title, content) values (?, ?, ?)`, doc_id, strings.Join(tt, " "), strings.Join(tc, " "))
+		if err != nil {
+			log.Println("MakeIndex insert error", err)
+			return
+		}
 	} else {
-		baseSearchEngine.InsertOrUpdate(title, content)
+		// 修改时间
+		_, err = GDB.Exec(`update docs_info set create_at = ? where doc_id = ?`, time.Now().Unix(), doc_id)
+		if err != nil {
+			log.Println("MakeIndex update error", err)
+			return
+		}
+		// 删除索引
+		_, err = GDB.Exec(`delete from docs where rowid = ?`, doc_id)
+		if err != nil {
+			log.Println("MakeIndex delete error", err)
+			return
+		}
+		// 新增索引
+		tt := splitWord(title)
+		tc := splitWord(content)
+		_, err = GDB.Exec(`insert into docs(rowid, title, content) values (?, ?, ?)`, doc_id, strings.Join(tt, " "), strings.Join(tc, " "))
+		if err != nil {
+			log.Println("MakeIndex insert error", err)
+			return
+		}
 	}
 }
 
 // 删除索引
 func DeleteIndex(user, group, title string) {
-	basePath := fmt.Sprintf("%s/%s/%s", DATA_DIR, user, group)
-	var baseSearchEngine = search.LowSearch{
-		BasePath: basePath,
-	}
-	baseSearchEngine.Init()
-	// 数据是否创建索引检测
-	baseSearchEngine.Delete(title)
-}
-
-// func auth_markdown(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		// 公共的
-// 		if strings.HasPrefix(r.URL.Path, "/markdown/public") {
-// 			http.StripPrefix("/markdown", next).ServeHTTP(w, r)
-// 		}
-// 		// 登录的
-// 		if suc, se := Auth(w, r); suc {
-// 			p := strings.TrimLeft(r.URL.Path, "/markdown")
-// 			p = "/" + se.Name + "/" + p
-// 			r.URL.Path = p
-// 			next.ServeHTTP(w, r)
-// 		}
-// 	})
-// }
-
-// 从用户配置文件刷新缓存
-func cache_load(user_file_name string) {
-	content, err := os.ReadFile(USERS_DIR + "/" + user_file_name)
+	var doc_id int
+	err := GDB.QueryRow(`select doc_id from docs_info where groupname = ? and username = ? and title = ?`, group, user, title).Scan(&doc_id)
 	if err != nil {
-		panic(err)
+		log.Println("DeleteIndex query error", err)
+		return
 	}
-	var user_info UserInfo
-	if nil != json.Unmarshal(content, &user_info) {
-		panic("json parse error " + user_file_name)
+	if doc_id != 0 {
+		// 删除索引
+		_, err = GDB.Exec(`delete from docs where rowid = ?`, doc_id)
+		if err != nil {
+			log.Println("DeleteIndex delete error", err)
+			return
+		}
+		// 删除文档描述
+		_, err = GDB.Exec(`delete from docs_info where doc_id = ?`, doc_id)
+		if err != nil {
+			log.Println("DeleteIndex delete error", err)
+			return
+		}
 	}
-	user_map[strings.Split(user_file_name, ".")[0]] = &user_info
 }
 
 func AddUser(name string, password string) error {
 	// 添加用户
-	if _, ok := user_map[name]; !ok {
-		user_map[name] = &UserInfo{
-			Name:     name,
-			Password: Genpass(password),
-		}
-		cache_save(name)
-		return nil
+	// 判断用户是否存在
+	var count int
+	err := GDB.QueryRow(`select count(1) from user_info where username = ?`, name).Scan(&count)
+	if err != nil {
+		log.Println("AddUser query error", err)
+		return err
 	}
-	// 用户已经存在
-	return errors.New("user exists")
+	if count > 0 {
+		return errors.New("user exists")
+	}
+
+	ep := Genpass(password)
+	// 插入数据库
+	_, err = GDB.Exec(`insert into user_info (username, password) values (?, ?)`, name, ep)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func init_work() {
-	// 判断用户目录是否存在，不存在就创建默认的
-	if _, err := os.Stat(USERS_DIR); os.IsNotExist(err) {
-		err := os.MkdirAll(USERS_DIR, 0755)
+	err := AddUser("root", "root")
+	if err == nil {
+		log.Println("初始化用户名: root")
+		log.Println("初始化密码: root")
+	}
+}
+
+// 自动扫描已有文件夹创建索引
+func createIndex(username string) {
+	log.Println("开始创建索引...")
+	defer log.Println("创建索引完成")
+	// 扫描用户文件夹
+	log.Println("开始处理用户: ", username)
+	// 扫描用户组
+	groups, err := utils.ListImmediateSubDirectories(filepath.Join(DATA_DIR, username))
+	if err != nil {
+		log.Println("createIndex error: ", err)
+		return
+	}
+	for _, group := range groups {
+		log.Println("开始处理用户组: ", group.Name())
+		// 判断组是否存在
+		group_check(username, group.Name())
+		// 列出所有md文件
+		files, err := utils.ListImmediateSubFiles(filepath.Join(DATA_DIR, username, group.Name()))
 		if err != nil {
-			return
+			log.Println("列出所有md文件失败: ", err)
+			continue
+		}
+		for _, file := range files {
+			log.Println("开始处理文件: ", file.Name())
+			if !strings.HasSuffix(file.Name(), ".md") {
+				continue
+			}
+			title := strings.TrimRight(file.Name(), ".md")
+			var count int
+			err := GDB.QueryRow(`select count(1) from docs_info where groupname = ? and username = ? and title = ?`, group.Name(), username, title).Scan(&count)
+			if err != nil {
+				log.Println("createIndex error: ", err)
+				continue
+			}
+			if count == 0 {
+				// 创建索引
+				content, err := os.ReadFile(filepath.Join(DATA_DIR, username, group.Name(), file.Name()))
+				if err != nil {
+					log.Println("createIndex error: ", err)
+					continue
+				}
+				log.Println("开始创建索引: ", title)
+				MakeIndex(username, group.Name(), title, string(content))
+			}
 		}
 	}
-	f, err := os.Open(USERS_DIR)
+
+}
+
+func SessionClear() {
+	// 把超时的session踢出去
+	rows, err := GDB.Query(`select session_id, username, expire from session_info`)
 	if err != nil {
-		fmt.Println("打开目录时出错：", err)
+		log.Println("session job error: ", err)
 		return
 	}
-	defer f.Close()
-	files, err := f.Readdir(-1)
-	if err != nil {
-		fmt.Println("读取目录时出错：", err)
-		return
-	}
-	var usefiles []fs.FileInfo
-	for _, file := range files {
-		if strings.HasSuffix(file.Name(), ".json") {
-			usefiles = append(usefiles, file)
-		}
-	}
-	if len(usefiles) == 0 {
-		// 无任何用户配置，则初始化一个用户
-		AddUser("root", "root")
-		fmt.Println("初始化用户名: root")
-		fmt.Println("初始化密码: root")
-	}
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".json") {
-			cache_load(file.Name())
-		}
-	}
-	// 会话目录创建
-	if _, err := os.Stat(SESSIONS_DIR); os.IsNotExist(err) {
-		err := os.MkdirAll(SESSIONS_DIR, 0755)
+	defer rows.Close()
+
+	var sessionids = make([]string, 0)
+	for rows.Next() {
+		var session_id, username string
+		var expire int64
+		err := rows.Scan(&session_id, &username, &expire)
 		if err != nil {
-			return
+			log.Println("session loop error: ", err)
+			continue
+		}
+		if expire < time.Now().Unix() {
+			// session 超时
+			sessionids = append(sessionids, session_id)
 		}
 	}
-	// 加载会话
-	fsd, err := os.Open(SESSIONS_DIR)
-	if err != nil {
-		fmt.Println("打开目录时出错：", err)
-		return
-	}
-	defer fsd.Close()
-	sfiles, err := fsd.Readdir(-1)
-	if err != nil {
-		fmt.Println("读取目录时出错：", err)
-		return
-	}
-	var usesfiles []fs.FileInfo
-	for _, file := range sfiles {
-		if strings.HasSuffix(file.Name(), ".json") {
-			usesfiles = append(usesfiles, file)
-		}
-	}
-	if len(usesfiles) != 0 {
-		// 加载会话
-		for _, fi := range usesfiles {
-			session_load(fi.Name())
+	for _, session_id := range sessionids {
+		_, err = GDB.Exec(`delete from session_info where session_id = ?`, session_id)
+		if err != nil {
+			log.Println("session delete error: ", err)
+			continue
 		}
 	}
 }
@@ -1075,14 +1106,7 @@ func Job() {
 	for {
 		<-t.C
 		t.Reset(dur)
-		// 把超时的session踢出去
-		for k, us := range session_map {
-			if us.Expires < time.Now().Unix() {
-				// session 超时
-				delete(session_map, k)
-				os.Remove(SESSIONS_DIR + "/" + k + ".json")
-			}
-		}
+		SessionClear()
 		// 检查恶意登录
 		loginRecordClear()
 	}
@@ -1148,10 +1172,6 @@ func auth_static(next http.Handler) http.Handler {
 		if IsStatic(r.URL.Path) {
 			http.StripPrefix("/", next).ServeHTTP(w, r)
 		} else {
-			// 公共的
-			// if strings.HasPrefix(r.URL.Path, "/markdown/public") {
-			// 	http.StripPrefix("/markdown", next).ServeHTTP(w, r)
-			// }
 			// 登录的
 			if suc, se := Auth(w, r); suc {
 				// gn := Groupname(r)
@@ -1166,12 +1186,81 @@ func auth_static(next http.Handler) http.Handler {
 	})
 }
 
+func createTable() error {
+
+	_, err := GDB.Exec(`CREATE TABLE IF NOT EXISTS user_info (
+		username  varchar(100),
+		password varchar(100)
+		)`)
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	_, err = GDB.Exec(`CREATE TABLE IF NOT EXISTS session_info (session_id varchar (100), username varchar (100), expire INTEGER)`)
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	_, err = GDB.Exec(`CREATE TABLE IF NOT EXISTS login_record (username varchar (100), last_time INTEGER, login_count INTEGER)`)
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	_, err = GDB.Exec(`CREATE TABLE IF NOT EXISTS docs_group(groupname varchar(100), username varchar(100), create_at INTEGER)`)
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	_, err = GDB.Exec(`CREATE TABLE IF NOT EXISTS docs_info(doc_id INTEGER PRIMARY KEY AUTOINCREMENT, groupname varchar(100), title varchar(100), username  varchar(100), create_at INTEGER)`)
+
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	_, err = GDB.Exec(`CREATE INDEX IF NOT EXISTS docs_username ON docs_info(username)`)
+
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	_, err = GDB.Exec(`CREATE INDEX IF NOT EXISTS docs_groupname ON docs_info(groupname)`)
+
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	_, err = GDB.Exec(`CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(title, content)`)
+
+	if err != nil {
+		log.Println("createTable error", err)
+		return err
+	}
+
+	return nil
+}
+
+func updateIndex(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+	go createIndex(session.Name)
+	SuccessResponse(w, r, true)
+}
+
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	var bind, passwd string
 	var genpass bool
 	flag.BoolVar(&genpass, "genpass", false, "生成hash密码")
 	flag.StringVar(&passwd, "gen-password", "markdown", "需要加密的密码")
-	flag.StringVar(&USERS_DIR, "users", "users", "用户信息存档目录")
 	flag.StringVar(&DATA_DIR, "data", "markdown", "文档存储目录")
 	flag.StringVar(&bind, "bind", "127.0.0.1:11990", "绑定host与端口信息")
 	flag.StringVar(&SESSIONS_DIR, "sessions", "sessions", "会话持久化目录")
@@ -1183,7 +1272,20 @@ func main() {
 		return
 	}
 
-	fmt.Println("浏览器地址：http://" + bind)
+	db, err := sql.Open("sqlite3", "./webmark.db?_journal_mode=WAL") // 文件不存在会自动创建
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	if err = db.Ping(); err != nil {
+		log.Fatal(err)
+	}
+	GDB = db
+
+	createTable()
+
+	log.Println("浏览器地址：http://" + bind)
 	init_work()
 	go Job()
 	webroot, _ := fs.Sub(staticFiles, "page")
@@ -1204,7 +1306,8 @@ func main() {
 	http.HandleFunc("/new-user", new_user)
 	http.HandleFunc("/export/", export)
 	http.HandleFunc("/search-detail", search_detail)
-	http.HandleFunc("/enable-public/{groupname}/{markdownname}", enable_public)
+	// 刷新索引
+	http.HandleFunc("/update-index", updateIndex)
 	server := http.Server{Addr: bind}
 	server.ListenAndServe()
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout, Input, Button, Flex, Space, Modal, message } from 'antd';
 import {
     AppstoreAddOutlined,
@@ -6,7 +6,8 @@ import {
     SearchOutlined,
     UserAddOutlined,
     SettingOutlined,
-    LogoutOutlined
+    LogoutOutlined,
+    CloudSyncOutlined
 } from '@ant-design/icons';
 import './ComMain.css';
 import { useNavigate } from 'react-router-dom';
@@ -50,6 +51,26 @@ const UserMain = () => {
                         }
                     }
                     setGroupList(res);
+                } else {
+                    messageApi.open({
+                        type: 'error',
+                        content: d.msg,
+                    });
+                }
+            });
+    };
+
+    const updateIndex = () => {
+        fetch('/update-index', {
+            method: 'GET',
+        })
+            .then(response => response.json())
+            .then(d => {
+                if (d.ok) {
+                    messageApi.open({
+                        type: 'success',
+                        content: "正拼命刷新索引中...",
+                    });
                 } else {
                     messageApi.open({
                         type: 'error',
@@ -242,6 +263,9 @@ const UserMain = () => {
                         <Button icon={<UserAddOutlined />} onClick={() => {
                             setIsNewUserModalOpen(true);
                         }}>新用户</Button>
+                        <Button icon={<CloudSyncOutlined />} onClick={() => {
+                            updateIndex();
+                        }}>刷新索引</Button>
                         <Button icon={<SettingOutlined />} onClick={() => {
                             setIsSettingModalOpen(true);
                         }}>设置</Button>

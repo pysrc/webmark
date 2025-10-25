@@ -7,4 +7,7 @@ require (
 	golang.org/x/crypto v0.15.0
 )
 
-require github.com/vcaesar/cedar v0.20.1 // indirect
+require (
+	github.com/mattn/go-sqlite3 v1.14.32 // indirect
+	github.com/vcaesar/cedar v0.20.1 // indirect
+)

@@ -2,3 +2,4 @@
 users/
 markdown/
 sessions/
+*.db

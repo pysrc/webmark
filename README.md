@@ -1,3 +1,7 @@
+## 后端编译
+
+`go build --tags "fts5"`
+
 ## WEBMARK
 
 Markdown 管理软件
