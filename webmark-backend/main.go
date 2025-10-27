@@ -1141,6 +1141,7 @@ func IsStatic(name string) bool {
 		strings.HasSuffix(name, ".html") ||
 		strings.HasSuffix(name, ".js") ||
 		strings.HasSuffix(name, ".css") ||
+		strings.HasSuffix(name, ".json") ||
 		strings.HasSuffix(name, ".ico") {
 		return true
 	}
@@ -1173,14 +1174,18 @@ func auth_static(next http.Handler) http.Handler {
 			http.StripPrefix("/", next).ServeHTTP(w, r)
 		} else {
 			// 登录的
+			log.Println(r.URL.Path)
 			if suc, se := Auth(w, r); suc {
+				log.Println(r.URL.Path)
 				// gn := Groupname(r)
 				// p := "/" + se.Name + "/" + gn + r.URL.Path
 				p := "/" + se.Name + "/" + r.URL.Path
 				r.URL.Path = p
-				fmt.Println(r.URL.Path)
+				// fmt.Println(r.URL.Path)
 				next.ServeHTTP(w, r)
+				return
 			}
+			log.Println(r.URL.Path)
 			http.StripPrefix("/", next).ServeHTTP(w, r)
 		}
 	})
