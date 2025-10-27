@@ -207,9 +207,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 					ErrorResponse(w, r)
 					return
 				}
-				cookie_session_id := http.Cookie{Name: "session_id", Value: session_id, Expires: expires}
+				cookie_session_id := http.Cookie{Name: "session_id", Value: session_id, Expires: expires, Path: "/"}
 				http.SetCookie(w, &cookie_session_id)
-				cookie_username := http.Cookie{Name: "username", Value: username, Expires: expires}
+				cookie_username := http.Cookie{Name: "username", Value: username, Expires: expires, Path: "/"}
 				http.SetCookie(w, &cookie_username)
 				SuccessResponse(w, r, "success")
 			} else {
@@ -367,7 +367,7 @@ func new_markdown(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
-	parts := GetPathList(r.URL.Path, "/new-markdown/")
+	parts := GetPathList(r.URL.Path, "/wmapi/new-markdown/")
 	var groupname = parts[0]
 	var markdownname = parts[1]
 	group_check(session.Name, groupname)
@@ -404,7 +404,7 @@ func update_markdown(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
-	parts := GetPathList(r.URL.Path, "/update-markdown/")
+	parts := GetPathList(r.URL.Path, "/wmapi/update-markdown/")
 	var groupname = parts[0]
 	var markdownname = parts[1]
 	group_check(session.Name, groupname)
@@ -442,7 +442,7 @@ func del_markdown(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
-	parts := GetPathList(r.URL.Path, "/del-markdown/")
+	parts := GetPathList(r.URL.Path, "/wmapi/del-markdown/")
 	var groupname = parts[0]
 	var markdownname = parts[1]
 	var fname = DATA_DIR + "/" + session.Name + "/" + groupname + "/" + markdownname
@@ -459,7 +459,7 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
-	parts := GetPathList(r.URL.Path, "/del-group/")
+	parts := GetPathList(r.URL.Path, "/wmapi/del-group/")
 	var groupname = parts[0]
 	var fname = DATA_DIR + "/" + session.Name + "/" + groupname
 	os.RemoveAll(fname)
@@ -590,14 +590,14 @@ func export(w http.ResponseWriter, r *http.Request) {
 	}
 	user_check(session.Name)
 	var username = session.Name
-	if r.URL.Path == "/export/" {
+	if r.URL.Path == "/wmapi/export/" {
 		// 导出整个用户的文档
 		var fname = username + ".zip"
 		w.Header().Add("Content-Disposition", "attachment; filename="+fname)
 		w.Header().Add("Content-Type", "application/octet-stream")
 		ZipDir(DATA_DIR+"/"+username, w)
 	} else {
-		var restname = strings.TrimPrefix(r.URL.Path, "/export/")
+		var restname = strings.TrimPrefix(r.URL.Path, "/wmapi/export/")
 		var rts = strings.Split(restname, "/")
 		if len(rts) == 1 {
 			// 导出某个组的文档
@@ -666,7 +666,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user_check(session.Name)
-	parts := GetPathList(r.URL.Path, "/upload/")
+	parts := GetPathList(r.URL.Path, "/wmapi/upload/")
 	var groupname = parts[0]
 	var markdownname = parts[1]
 
@@ -1137,12 +1137,14 @@ var staticFiles embed.FS
 // 判断是否静态文件
 func IsStatic(name string) bool {
 	if name == "/" ||
-		strings.Contains(name, "static/") ||
-		strings.HasSuffix(name, ".html") ||
-		strings.HasSuffix(name, ".js") ||
-		strings.HasSuffix(name, ".css") ||
-		strings.HasSuffix(name, ".json") ||
-		strings.HasSuffix(name, ".ico") {
+		strings.Contains(name, "/static/") ||
+		strings.HasSuffix(name, "index.html") ||
+		strings.HasSuffix(name, "asset-manifest.json") ||
+		strings.HasSuffix(name, "favicon.ico") ||
+		strings.HasSuffix(name, "logo192.png") ||
+		strings.HasSuffix(name, "logo512.png") ||
+		strings.HasSuffix(name, "manifest.json") ||
+		strings.HasSuffix(name, "robots.txt") {
 		return true
 	}
 	return false
@@ -1177,16 +1179,13 @@ func auth_static(next http.Handler) http.Handler {
 			log.Println(r.URL.Path)
 			if suc, se := Auth(w, r); suc {
 				log.Println(r.URL.Path)
-				// gn := Groupname(r)
-				// p := "/" + se.Name + "/" + gn + r.URL.Path
-				p := "/" + se.Name + "/" + r.URL.Path
+				s := strings.TrimLeft(r.URL.Path, "/wmapi")
+				p := "/" + se.Name + "/" + s
 				r.URL.Path = p
-				// fmt.Println(r.URL.Path)
+				log.Println(r.URL.Path)
 				next.ServeHTTP(w, r)
 				return
 			}
-			log.Println(r.URL.Path)
-			http.StripPrefix("/", next).ServeHTTP(w, r)
 		}
 	})
 }
@@ -1298,21 +1297,21 @@ func main() {
 	http.Handle("/", auth_static(http.FileServer(multiDir)))
 	// http.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("page/"))))
 	// http.Handle("/markdown/", auth_markdown(http.FileServer(http.Dir(DATA_DIR+"/"))))
-	http.HandleFunc("/upload/", upload)
-	http.HandleFunc("/login", login)
-	http.HandleFunc("/logout", logout)
-	http.HandleFunc("/group-list", group_list)
-	http.HandleFunc("/new-group", new_group)
-	http.HandleFunc("/new-markdown/", new_markdown)
-	http.HandleFunc("/update-markdown/", update_markdown)
-	http.HandleFunc("/del-markdown/", del_markdown)
-	http.HandleFunc("/del-group/", del_group)
-	http.HandleFunc("/user-password-update", user_password_update)
-	http.HandleFunc("/new-user", new_user)
-	http.HandleFunc("/export/", export)
-	http.HandleFunc("/search-detail", search_detail)
+	http.HandleFunc("/wmapi/upload/", upload)
+	http.HandleFunc("/wmapi/login", login)
+	http.HandleFunc("/wmapi/logout", logout)
+	http.HandleFunc("/wmapi/group-list", group_list)
+	http.HandleFunc("/wmapi/new-group", new_group)
+	http.HandleFunc("/wmapi/new-markdown/", new_markdown)
+	http.HandleFunc("/wmapi/update-markdown/", update_markdown)
+	http.HandleFunc("/wmapi/del-markdown/", del_markdown)
+	http.HandleFunc("/wmapi/del-group/", del_group)
+	http.HandleFunc("/wmapi/user-password-update", user_password_update)
+	http.HandleFunc("/wmapi/new-user", new_user)
+	http.HandleFunc("/wmapi/export/", export)
+	http.HandleFunc("/wmapi/search-detail", search_detail)
 	// 刷新索引
-	http.HandleFunc("/update-index", updateIndex)
+	http.HandleFunc("/wmapi/update-index", updateIndex)
 	server := http.Server{Addr: bind}
 	server.ListenAndServe()
 }

@@ -223,7 +223,7 @@ const GroupMain = () => {
                     console.log('上传取消');
                 });
                 // 发送请求
-                xhr.open('POST', `/upload/${groupname}/${mdname}`);
+                xhr.open('POST', `/wmapi/upload/${groupname}/${mdname}`);
                 xhr.send(formData);
             }),
         }),
@@ -275,7 +275,7 @@ const GroupMain = () => {
 
     const fetchMarkdowns = () => {
 
-        fetch('/search-detail', {
+        fetch('/wmapi/search-detail', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -304,7 +304,7 @@ const GroupMain = () => {
     useEffect(fetchMarkdowns, []);
 
     const saveMarkdown = () => {
-        fetch(`/update-markdown/${groupname}/${nameRef.current}`, {
+        fetch(`/wmapi/update-markdown/${groupname}/${nameRef.current}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/text'
@@ -328,7 +328,7 @@ const GroupMain = () => {
             });
     };
     const newMarkdown = () => {
-        fetch(`/new-markdown/${groupname}/${newMarkdownData.mdname}`, {
+        fetch(`/wmapi/new-markdown/${groupname}/${newMarkdownData.mdname}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/text'
@@ -369,7 +369,7 @@ const GroupMain = () => {
     };
     const deleteConfirm = (e) => {
         setMdName("");
-        fetch(`/del-markdown/${groupname}/${mdname}`, {
+        fetch(`/wmapi/del-markdown/${groupname}/${mdname}`, {
             method: 'DELETE'
         })
             .then(response => response.text())
@@ -379,7 +379,7 @@ const GroupMain = () => {
             });
     };
     const deleteGroupConfirm = (e) => {
-        fetch(`/del-group/${groupname}`, {
+        fetch(`/wmapi/del-group/${groupname}`, {
             method: 'DELETE'
         })
             .then(response => response.text())
@@ -441,7 +441,7 @@ const GroupMain = () => {
                             setIsNewMarkdownModalOpen(true);
                         }}>新建文档</Button>
                         <Button icon={<ExportOutlined />} onClick={() => {
-                            window.open(`/export/${groupname}`);
+                            window.open(`/wmapi/export/${groupname}`);
                         }}>导出分组</Button>
                         <Popconfirm
                             title="删除分组"
@@ -484,7 +484,7 @@ const GroupMain = () => {
                                                         setIsCryptoModalOpen(true);
                                                     }}>加解密</Button>
                                                     <Button icon={<ExportOutlined />} onClick={() => {
-                                                        window.open(`/export/${groupname}/${mdname}`);
+                                                        window.open(`/wmapi/export/${groupname}/${mdname}`);
                                                     }}>导出</Button>
 
                                                     <Popconfirm

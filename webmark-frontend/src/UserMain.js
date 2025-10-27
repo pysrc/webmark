@@ -37,7 +37,7 @@ const UserMain = () => {
 
     const fetchGroup = () => {
 
-        fetch('/group-list', {
+        fetch('/wmapi/group-list', {
             method: 'GET',
         })
             .then(response => response.json())
@@ -61,7 +61,7 @@ const UserMain = () => {
     };
 
     const updateIndex = () => {
-        fetch('/update-index', {
+        fetch('/wmapi/update-index', {
             method: 'GET',
         })
             .then(response => response.json())
@@ -82,7 +82,7 @@ const UserMain = () => {
 
     useEffect(fetchGroup, []);
     const newGroup = () => {
-        fetch('/new-group', {
+        fetch('/wmapi/new-group', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -110,7 +110,7 @@ const UserMain = () => {
             });
             return;
         }
-        fetch('/new-user', {
+        fetch('/wmapi/new-user', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -134,7 +134,7 @@ const UserMain = () => {
             });
     }
     const logout = () => {
-        fetch('/logout', {
+        fetch('/wmapi/logout', {
             method: 'GET'
         })
             .then(response => response.json())
@@ -159,7 +159,7 @@ const UserMain = () => {
             });
             return;
         }
-        fetch('/user-password-update', {
+        fetch('/wmapi/user-password-update', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -258,7 +258,7 @@ const UserMain = () => {
                             setIsNewGroupModalOpen(true);
                         }}>新建分组</Button>
                         <Button icon={<ExportOutlined />} onClick={() => {
-                            window.open(`/export`);
+                            window.open(`/wmapi/export`);
                         }}>导出</Button>
                         <Button icon={<UserAddOutlined />} onClick={() => {
                             setIsNewUserModalOpen(true);

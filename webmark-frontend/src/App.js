@@ -19,7 +19,7 @@ const LoginPage = () => {
     // 登录逻辑
     const handleLogin = () => {
         // 这里可以添加你的登录逻辑，例如请求后端验证用户名和密码
-        fetch('/login', {
+        fetch('/wmapi/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
