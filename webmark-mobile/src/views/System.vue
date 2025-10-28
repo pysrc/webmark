@@ -14,9 +14,9 @@
                 for (let index = 0; index < d.data.length; index++) {
                     const element = d.data[index];
                     groups.value.push({
-                        name: element,
+                        name: element.groupname,
                         icon: '📝',
-                        count: 0
+                        count: element.gcount,
                     });
                 }
             } else {

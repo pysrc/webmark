@@ -46,7 +46,7 @@ const UserMain = () => {
                     let res = [];
                     for (let index = 0; index < d.data.length; index++) {
                         const element = d.data[index];
-                        if (element.indexOf(keywords) !== -1) {
+                        if (element.groupname.indexOf(keywords) !== -1) {
                             res.push(element);
                         }
                     }
@@ -276,9 +276,9 @@ const UserMain = () => {
                     <Flex wrap gap="small">
                         {groupList.map(v => (
                             <Button key={v} onClick={() => {
-                                navigate(`/group-main?groupname=${v}`);
+                                navigate(`/group-main?groupname=${v.groupname}`);
                             }}>
-                                {v}
+                                {`${v.groupname}(${v.gcount})`}
                             </Button>
                         ))}
                     </Flex>

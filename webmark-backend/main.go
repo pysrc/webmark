@@ -235,6 +235,11 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	SuccessResponse(w, r, "logout")
 }
 
+type GroupInfo struct {
+	Groupname string `json:"groupname"`
+	Gcount    int    `json:"gcount"`
+}
+
 // 用户文档组
 func group_list(w http.ResponseWriter, r *http.Request) {
 	var suc, session = Auth(w, r)
@@ -248,14 +253,32 @@ func group_list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	var res = make([]string, 0)
+	var res = make([]*GroupInfo, 0)
 	for rows.Next() {
-		var groupname string
-		err := rows.Scan(&groupname)
+		var g GroupInfo
+		err := rows.Scan(&g.Groupname)
 		if err != nil {
 			continue
 		}
-		res = append(res, groupname)
+		res = append(res, &g)
+	}
+	grows, err := GDB.Query(`select groupname, count(1) as gcount from docs_info where username = ? group by groupname`, session.Name)
+	if err != nil {
+		ErrorResponse(w, r)
+		return
+	}
+	defer grows.Close()
+	for grows.Next() {
+		var g GroupInfo
+		err := grows.Scan(&g.Groupname, &g.Gcount)
+		if err != nil {
+			continue
+		}
+		for i, v := range res {
+			if v.Groupname == g.Groupname {
+				res[i].Gcount = g.Gcount
+			}
+		}
 	}
 	SuccessResponse(w, r, res)
 }
