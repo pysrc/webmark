@@ -1179,7 +1179,7 @@ func auth_static(next http.Handler) http.Handler {
 			log.Println(r.URL.Path)
 			if suc, se := Auth(w, r); suc {
 				log.Println(r.URL.Path)
-				s := strings.TrimLeft(r.URL.Path, "/wmapi")
+				s := strings.TrimPrefix(r.URL.Path, "/wmapi")
 				p := "/" + se.Name + "/" + s
 				r.URL.Path = p
 				log.Println(r.URL.Path)
