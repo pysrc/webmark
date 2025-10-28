@@ -51,7 +51,7 @@ const imagePrefix = (groupname) => {
             processor.use(() => (tree) => {
                 visit(tree, ['image', 'link'], (node) => {
                     if (typeof node.url === 'string' && !node.url.startsWith('http')) {
-                        node.url = `${groupname}/${node.url.replace(/^\/+/, '')}`;
+                        node.url = `/wmapi/markdown/${groupname}/${node.url.replace(/^\/+/, '')}`;
                     }
                 });
             }),
@@ -355,7 +355,7 @@ const GroupMain = () => {
             return;
         }
         setMdName(mdname);
-        fetch(`/${groupname}/${mdname}.md?_t=${Date.now()}`, {
+        fetch(`/wmapi/markdown/${groupname}/${mdname}.md?_t=${Date.now()}`, {
             method: 'GET',
             headers: {
                 'Cache-Control': 'no-cache'
