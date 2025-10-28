@@ -99,8 +99,6 @@ type LoginRecord struct {
 	Count    int   // 尝试次数
 }
 
-var loginRecord = make(map[string]*LoginRecord)
-
 // 一天超时清理
 const loginRecordTimeOut = 60 * 60 * 24
 
