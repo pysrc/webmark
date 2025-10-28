@@ -1044,7 +1044,7 @@ func createIndex(username string) {
 			if !strings.HasSuffix(file.Name(), ".md") {
 				continue
 			}
-			title := strings.TrimRight(file.Name(), ".md")
+			title := strings.TrimSuffix(file.Name(), ".md")
 			var count int
 			err := GDB.QueryRow(`select count(1) from docs_info where groupname = ? and username = ? and title = ?`, group.Name(), username, title).Scan(&count)
 			if err != nil {
