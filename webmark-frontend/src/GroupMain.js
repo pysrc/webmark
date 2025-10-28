@@ -355,7 +355,7 @@ const GroupMain = () => {
             return;
         }
         setMdName(mdname);
-        fetch(`/${groupname}/${mdname}.md`, {
+        fetch(`/${groupname}/${mdname}.md?_t=${Date.now()}`, {
             method: 'GET',
             headers: {
                 'Cache-Control': 'no-cache'
