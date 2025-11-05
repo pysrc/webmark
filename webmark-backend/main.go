@@ -303,7 +303,11 @@ func new_group(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, r)
 		return
 	}
-	var groupname = ng.Groupname
+	var groupname = strings.Trim(ng.Groupname, " ")
+	if groupname == "" || strings.Contains(groupname, "/") || strings.Contains(groupname, "\\") {
+		ErrorResponse(w, r)
+		return
+	}
 	group_check(session.Name, groupname)
 	SuccessResponse(w, r, groupname)
 }
@@ -481,7 +485,11 @@ func del_group(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := GetPathList(r.URL.Path, "/wmapi/del-group/")
-	var groupname = parts[0]
+	var groupname = strings.Trim(parts[0], " ")
+	if groupname == "" || strings.Contains(groupname, "/") || strings.Contains(groupname, "\\") {
+		ErrorResponse(w, r)
+		return
+	}
 	var fname = DATA_DIR + "/" + session.Name + "/" + groupname
 	os.RemoveAll(fname)
 	// 删除索引
