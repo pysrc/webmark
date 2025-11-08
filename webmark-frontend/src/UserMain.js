@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layout, Input, Button, Flex, Space, Modal, message } from 'antd';
+import { Layout, Input, Button, Flex, Space, Modal, message, Avatar } from 'antd';
 import {
     AppstoreAddOutlined,
     ExportOutlined,
@@ -275,11 +275,44 @@ const UserMain = () => {
                 <Content className="content">
                     <Flex wrap gap="small">
                         {groupList.map(v => (
-                            <Button key={v} onClick={() => {
-                                navigate(`/group-main?groupname=${v.groupname}`);
+                        <Button
+                            key={v.groupname}
+                            onClick={() => navigate(`/group-main?groupname=${v.groupname}`)}
+                            style={{
+                            width: 90,
+                            height: 90,
+                            padding: 8,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center'
+                            }}
+                        >
+                            <Space direction="vertical" size={4} align="center">
+                            <Avatar 
+                                size={40} 
+                                style={{ 
+                                backgroundColor: '#1677ff',
+                                fontSize: 24,
+                                fontWeight: 'bold'
+                                }}
+                            >
+                                {v.groupname.charAt(0).toUpperCase()}
+                            </Avatar>
+                            <div style={{ 
+                                fontSize: 12,
+                                lineHeight: 1.2,
+                                whiteSpace: 'normal',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                width: '100%'
                             }}>
-                                {`${v.groupname}(${v.gcount})`}
-                            </Button>
+                                {v.groupname}({v.gcount})
+                            </div>
+                            </Space>
+                        </Button>
                         ))}
                     </Flex>
                 </Content>
