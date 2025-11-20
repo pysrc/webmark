@@ -246,13 +246,24 @@ const GroupMain = () => {
 
     const textRef = useRef(mdvalue);
     const nameRef = useRef(mdname);
+    const [isModified, setIsModified] = useState(false); // 标记是否有未保存的更改
 
     useEffect(() => {
+        if(textRef.current !== mdvalue) {
+            setIsModified(true);
+        }
         textRef.current = mdvalue; // 每次渲染时更新 ref
     }, [mdvalue]);
     useEffect(() => {
         nameRef.current = mdname; // 每次渲染时更新 ref
     }, [mdname]);
+    useEffect(() => {
+        if (groupname && mdname) {
+            document.title = `${groupname} - ${mdname}`;
+        } else {
+            document.title = 'WebMark'; // 默认标题
+        }
+    }, [groupname, mdname]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -347,6 +358,7 @@ const GroupMain = () => {
                         type: 'success',
                         content: '保存成功',
                     });
+                    setIsModified(false);
                 } else {
                     messageApi.open({
                         type: 'error',
@@ -391,6 +403,8 @@ const GroupMain = () => {
         })
             .then(response => response.text())
             .then(d => {
+                setIsModified(false);
+                textRef.current = d;
                 setMdValue(d);
                 setShowEditor(true);
             });
@@ -504,7 +518,7 @@ const GroupMain = () => {
                                 <Layout>
                                     <Header style={headerStyle}>
                                         <Layout style={{ backgroundColor: '#fff' }}>
-                                            <Content><h1>{mdname}</h1></Content>
+                                            <Content><h1>{isModified ? '* ' : ''}{mdname}</h1></Content>
                                             <Sider width="40%" style={{ backgroundColor: '#fff' }}>
                                                 <Space>
                                                     <Button icon={<SaveOutlined />} type="primary" onClick={saveMarkdown}>保存</Button>

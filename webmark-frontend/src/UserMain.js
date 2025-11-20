@@ -182,6 +182,14 @@ const UserMain = () => {
                 }
             });
     }
+    const headerStyle = {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 16px',
+        background: '#f8f8f8',
+        color: '#777',
+    };
     return (
         <>
             {contextHolder}
@@ -242,18 +250,26 @@ const UserMain = () => {
                     }} />
                 </Space>
             </Modal>
-            <Layout className="layout">
-                <Header className="header">
-                    <Space>
-                        用户主页
-                        <Space.Compact style={{ width: '100%' }}>
-                            <Input onKeyDown={(k) => {
-                                if (k.code === "Enter") {
-                                    fetchGroup();
-                                }
-                            }} value={keywords} placeholder="关键词" onChange={(e) => setKeywords(e.target.value)} />
+        <Layout className="layout">
+            <Header className="header" style={headerStyle}>
+                <div className="header-content">
+                    <div className="header-left">
+                        <span>用户主页</span>
+                        <Space.Compact style={{ width: '300px' }}>
+                            <Input 
+                                onKeyDown={(k) => {
+                                    if (k.code === "Enter") {
+                                        fetchGroup();
+                                    }
+                                }} 
+                                value={keywords} 
+                                placeholder="关键词" 
+                                onChange={(e) => setKeywords(e.target.value)} 
+                            />
                             <Button onClick={fetchGroup} icon={<SearchOutlined />}>搜索</Button>
                         </Space.Compact>
+                    </div>
+                    <div className="header-right">
                         <Button icon={<AppstoreAddOutlined />} onClick={() => {
                             setIsNewGroupModalOpen(true);
                         }}>新建分组</Button>
@@ -270,53 +286,48 @@ const UserMain = () => {
                             setIsSettingModalOpen(true);
                         }}>设置</Button>
                         <Button icon={<LogoutOutlined />} onClick={logout}>登出</Button>
-                    </Space>
-                </Header>
-                <Content className="content">
-                    <Flex wrap gap="small">
-                        {groupList.map(v => (
+                    </div>
+                </div>
+            </Header>
+            <Content className="content">
+                <div className="group-grid">
+                    {groupList.map(v => (
                         <Button
                             key={v.groupname}
                             onClick={() => navigate(`/group-main?groupname=${v.groupname}`)}
-                            style={{
-                            width: 90,
-                            height: 90,
-                            padding: 8,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center'
-                            }}
+                            className="group-button"
                         >
-                            <Space direction="vertical" size={4} align="center">
-                            <Avatar 
-                                size={40} 
-                                style={{ 
-                                backgroundColor: '#1677ff',
-                                fontSize: 24,
-                                fontWeight: 'bold'
-                                }}
-                            >
-                                {v.groupname.charAt(0).toUpperCase()}
-                            </Avatar>
-                            <div style={{ 
-                                fontSize: 12,
-                                lineHeight: 1.2,
-                                whiteSpace: 'normal',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                width: '100%'
-                            }}>
-                                {v.groupname}({v.gcount})
-                            </div>
+                            <Space direction="vertical" size={8} align="center">
+                                <Avatar 
+                                    size={48} 
+                                    style={{ 
+                                        backgroundColor: '#1677ff',
+                                        fontSize: 24,
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    {v.groupname.charAt(0).toUpperCase()}
+                                </Avatar>
+                                <div style={{ 
+                                    fontSize: 12,
+                                    lineHeight: 1.2,
+                                    whiteSpace: 'normal',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    width: '100%',
+                                    textAlign: 'center'
+                                }}>
+                                    {v.groupname}({v.gcount})
+                                </div>
                             </Space>
                         </Button>
-                        ))}
-                    </Flex>
-                </Content>
-            </Layout>
+                    ))}
+                </div>
+            </Content>
+        </Layout>
         </>
     );
 };
