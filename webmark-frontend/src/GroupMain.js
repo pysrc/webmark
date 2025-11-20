@@ -259,13 +259,41 @@ const GroupMain = () => {
             const btn = e.target.closest('.copy-btn, .inline-copy-btn');
             if (btn) {
                 const code = btn.getAttribute('data-code');
-                navigator.clipboard.writeText(code).then(() => {
-                    // 切换成 ✅ 图标
-                    btn.textContent = '✅';
-                    setTimeout(() => {
-                        btn.textContent = '📋';
-                    }, 1500);
-                });
+                
+                // 使用现代 Clipboard API（优先）
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(code).then(() => {
+                        // 切换成 ✅ 图标
+                        btn.textContent = '✅';
+                        setTimeout(() => {
+                            btn.textContent = '📋';
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('Failed to copy text: ', err);
+                    });
+                } else {
+                    // 降级处理：使用旧版 execCommand 方法
+                    const textarea = document.createElement('textarea');
+                    textarea.value = code;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    
+                    try {
+                        const successful = document.execCommand('copy');
+                        if (successful) {
+                            btn.textContent = '✅';
+                            setTimeout(() => {
+                                btn.textContent = '📋';
+                            }, 1500);
+                        } else {
+                            console.error('Failed to copy text using execCommand');
+                        }
+                    } catch (err) {
+                        console.error('Fallback copy failed: ', err);
+                    }
+                    
+                    document.body.removeChild(textarea);
+                }
             }
         };
 
