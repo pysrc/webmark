@@ -256,14 +256,12 @@ const GroupMain = () => {
     }, [mdvalue]);
     useEffect(() => {
         nameRef.current = mdname; // 每次渲染时更新 ref
-    }, [mdname]);
-    useEffect(() => {
         if (groupname && mdname) {
             document.title = `${groupname} - ${mdname}`;
         } else {
             document.title = 'WebMark'; // 默认标题
         }
-    }, [groupname, mdname]);
+    }, [mdname]);
 
     useEffect(() => {
         const handler = (e) => {
