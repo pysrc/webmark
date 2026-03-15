@@ -42,6 +42,55 @@ const headerStyle = {
     backgroundColor: '#fff',
 };
 
+// 计算两个文本的差异，使用 LCS 算法，按 git diff 格式输出
+const computeDiff = (original, current) => {
+    const originalLines = original.split('\n');
+    const currentLines = current.split('\n');
+
+    // 计算 LCS（最长公共子序列）
+    const lcs = [];
+    for (let i = 0; i <= originalLines.length; i++) {
+        lcs[i] = [];
+        for (let j = 0; j <= currentLines.length; j++) {
+            if (i === 0 || j === 0) {
+                lcs[i][j] = 0;
+            } else if (originalLines[i - 1] === currentLines[j - 1]) {
+                lcs[i][j] = lcs[i - 1][j - 1] + 1;
+            } else {
+                lcs[i][j] = Math.max(lcs[i - 1][j], lcs[i][j - 1]);
+            }
+        }
+    }
+
+    // 回溯找出变化，只保留变更的行，记录行号
+    const changes = [];
+    let i = originalLines.length;
+    let j = currentLines.length;
+
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && originalLines[i - 1] === currentLines[j - 1]) {
+            // 相同的行，跳过
+            i--;
+            j--;
+        } else if (j > 0 && (i === 0 || lcs[i][j - 1] >= lcs[i - 1][j])) {
+            // 新增的行
+            changes.unshift({ type: 'added', content: currentLines[j - 1], lineNum: j });
+            j--;
+        } else if (i > 0) {
+            // 删除的行
+            changes.unshift({ type: 'deleted', content: originalLines[i - 1], lineNum: i });
+            i--;
+        }
+    }
+
+    // 限制显示数量
+    const limit = 15;
+    const displayChanges = changes.slice(0, limit);
+    const hasMore = changes.length > limit;
+
+    return { changes: displayChanges, hasMore };
+};
+
 const { Header, Content, Sider } = Layout;
 
 
@@ -239,6 +288,12 @@ const GroupMain = () => {
     const [cryptoPwd, setCryptoPwd] = useState("");
     const [isCryptoModalOpen, setIsCryptoModalOpen] = useState(false);
     // 加解密模态框end
+
+    // 未保存提示弹窗start
+    const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
+    const [pendingSwitchMdname, setPendingSwitchMdname] = useState('');
+    const [diffInfo, setDiffInfo] = useState({ changes: [], hasMore: false });
+    // 未保存提示弹窗end
     const [mdvalue, setMdValue] = useState('');
     const [mdname, setMdName] = useState('');
     const [showEditor, setShowEditor] = useState(false);
@@ -246,13 +301,16 @@ const GroupMain = () => {
 
     const textRef = useRef(mdvalue);
     const nameRef = useRef(mdname);
+    const originalTextRef = useRef(''); // 保存文件原始内容
+    const isModifiedRef = useRef(false); // 用 ref 追踪未保存的更改
     const [isModified, setIsModified] = useState(false); // 标记是否有未保存的更改
 
     useEffect(() => {
-        if(textRef.current !== mdvalue) {
-            setIsModified(true);
-        }
-        textRef.current = mdvalue; // 每次渲染时更新 ref
+        // 比较当前内容与原始内容，同时更新 textRef
+        textRef.current = mdvalue;
+        const modified = originalTextRef.current !== mdvalue;
+        isModifiedRef.current = modified;
+        setIsModified(modified);
     }, [mdvalue]);
     useEffect(() => {
         nameRef.current = mdname; // 每次渲染时更新 ref
@@ -356,6 +414,8 @@ const GroupMain = () => {
                         type: 'success',
                         content: '保存成功',
                     });
+                    originalTextRef.current = textRef.current; // 更新原始内容
+                    isModifiedRef.current = false;
                     setIsModified(false);
                 } else {
                     messageApi.open({
@@ -392,20 +452,37 @@ const GroupMain = () => {
         if (!mdname) {
             return;
         }
-        setMdName(mdname);
-        fetch(`/wmapi/markdown/${groupname}/${mdname}.md?_t=${Date.now()}`, {
-            method: 'GET',
-            headers: {
-                'Cache-Control': 'no-cache'
-            }
-        })
-            .then(response => response.text())
-            .then(d => {
-                setIsModified(false);
-                textRef.current = d;
-                setMdValue(d);
-                setShowEditor(true);
-            });
+
+        // 检查是否有未保存的更改
+        const checkAndSwitch = () => {
+            setMdName(mdname);
+            fetch(`/wmapi/markdown/${groupname}/${mdname}.md?_t=${Date.now()}`, {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            })
+                .then(response => response.text())
+                .then(d => {
+                    originalTextRef.current = d; // 保存原始内容
+                    textRef.current = d;
+                    setMdValue(d);
+                    setShowEditor(true);
+                    isModifiedRef.current = false;
+                    setIsModified(false);
+                });
+        };
+
+        if (isModifiedRef.current) {
+            // 使用 state 控制弹窗
+            setPendingSwitchMdname(mdname);
+            // 计算差异信息
+            const diff = computeDiff(originalTextRef.current, textRef.current);
+            setDiffInfo(diff);
+            setIsUnsavedModalOpen(true);
+        } else {
+            checkAndSwitch();
+        }
     };
     const deleteConfirm = (e) => {
         setMdName("");
@@ -461,6 +538,92 @@ const GroupMain = () => {
                         <Button onClick={decrypt}>解密</Button>
                     </Space>
                 </Space>
+            </Modal>
+            <Modal title="未保存的更改" open={isUnsavedModalOpen}
+                footer={[
+                    <Button key="save" type="primary" onClick={() => {
+                        // 保存当前文件后再切换
+                        fetch(`/wmapi/update-markdown/${groupname}/${nameRef.current}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/text'
+                            },
+                            body: textRef.current
+                        })
+                            .then(response => response.json())
+                            .then(d => {
+                                if (d.ok) {
+                                    messageApi.open({
+                                        type: 'success',
+                                        content: '保存成功',
+                                    });
+                                    isModifiedRef.current = false;
+                                    setIsModified(false);
+                                    setIsUnsavedModalOpen(false);
+                                    // 执行切换
+                                    setMdName(pendingSwitchMdname);
+                                    fetch(`/wmapi/markdown/${groupname}/${pendingSwitchMdname}.md?_t=${Date.now()}`, {
+                                        method: 'GET',
+                                        headers: {
+                                            'Cache-Control': 'no-cache'
+                                        }
+                                    })
+                                        .then(response => response.text())
+                                        .then(d => {
+                                            originalTextRef.current = d;
+                                            textRef.current = d;
+                                            setMdValue(d);
+                                            setShowEditor(true);
+                                        });
+                                } else {
+                                    messageApi.open({
+                                        type: 'error',
+                                        content: d.msg,
+                                    });
+                                }
+                            });
+                    }}>
+                        保存并切换
+                    </Button>,
+                    <Button key="nosave" onClick={() => {
+                        setIsUnsavedModalOpen(false);
+                        // 不保存，直接切换
+                        setMdName(pendingSwitchMdname);
+                        fetch(`/wmapi/markdown/${groupname}/${pendingSwitchMdname}.md?_t=${Date.now()}`, {
+                            method: 'GET',
+                            headers: {
+                                'Cache-Control': 'no-cache'
+                            }
+                        })
+                            .then(response => response.text())
+                            .then(d => {
+                                originalTextRef.current = d;
+                                textRef.current = d;
+                                setMdValue(d);
+                                setShowEditor(true);
+                            });
+                    }}>
+                        不保存切换
+                    </Button>,
+                    <Button key="cancel" onClick={() => {
+                        setIsUnsavedModalOpen(false);
+                    }}>
+                        取消
+                    </Button>,
+                ]}
+            >
+                <p>"{nameRef.current}" 有未保存的更改，是否保存后再切换？</p>
+                <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12, border: '1px solid #ddd', padding: 8, fontFamily: 'monospace', whiteSpace: 'pre-wrap', background: '#fafafa' }}>
+                    {diffInfo.changes.map((item, idx) => (
+                        <div key={idx} style={{
+                            margin: '2px 0',
+                            color: item.type === 'added' ? '#22863a' : '#cb2431'
+                        }}>
+                            {item.type === 'added' ? '+' : '-'} {item.lineNum} | {item.content}
+                        </div>
+                    ))}
+                    {diffInfo.hasMore && <div style={{ color: '#999', marginTop: 8 }}>... 还有更多变更</div>}
+                </div>
             </Modal>
             <Layout className="layout">
                 <Header className="header">
