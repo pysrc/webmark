@@ -1248,11 +1248,18 @@ func createTable() error {
 		return err
 	}
 
-	_, err = GDB.Exec(`CREATE TABLE IF NOT EXISTS docs_info(doc_id INTEGER PRIMARY KEY AUTOINCREMENT, groupname varchar(100), title varchar(100), username  varchar(100), create_at INTEGER)`)
+	_, err = GDB.Exec(`CREATE TABLE IF NOT EXISTS docs_info(doc_id INTEGER PRIMARY KEY AUTOINCREMENT, groupname varchar(100), title varchar(100), username  varchar(100), create_at INTEGER, is_public INTEGER DEFAULT 0)`)
 
 	if err != nil {
 		log.Println("createTable error", err)
 		return err
+	}
+
+	// 迁移：检查并添加 is_public 字段（如果不存在）
+	_, err = GDB.Exec(`ALTER TABLE docs_info ADD COLUMN is_public INTEGER DEFAULT 0`)
+	if err != nil {
+		// 如果字段已存在，忽略错误
+		log.Println("migrate is_public column:", err)
 	}
 
 	_, err = GDB.Exec(`CREATE INDEX IF NOT EXISTS docs_username ON docs_info(username)`)
@@ -1286,6 +1293,236 @@ func updateIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	go createIndex(session.Name)
 	SuccessResponse(w, r, true)
+}
+
+// 公开文档列表
+type PublicDoc struct {
+	Groupname string `json:"groupname"`
+	Title     string `json:"title"`
+	Username  string `json:"username"`
+}
+
+// 获取公开文档列表
+func public_list(w http.ResponseWriter, r *http.Request) {
+	rows, err := GDB.Query(`select groupname, title, username from docs_info where is_public = 1`)
+	if err != nil {
+		ErrorResponse(w, r)
+		return
+	}
+	defer rows.Close()
+
+	var res = make([]*PublicDoc, 0)
+	for rows.Next() {
+		var doc PublicDoc
+		err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username)
+		if err != nil {
+			continue
+		}
+		res = append(res, &doc)
+	}
+	SuccessResponse(w, r, res)
+}
+
+// 搜索公开文档
+func public_search(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		ErrorResponse(w, r)
+		return
+	}
+
+	var req struct {
+		Query string `json:"query"`
+	}
+	if err := ReadJson(r, &req); err != nil {
+		ErrorResponse(w, r)
+		return
+	}
+
+	// 分词
+	sps := splitWord(req.Query)
+	query := strings.TrimSpace(req.Query)
+	if query == "" {
+		// 返回所有公开文档
+		public_list(w, r)
+		return
+	}
+
+	// 使用倒排索引搜索
+	if len(sps) > 0 {
+		q := strings.Join(sps, " AND ")
+		sqls := `SELECT di.groupname, di.title, di.username
+			FROM docs d, docs_info di
+			WHERE di.doc_id = d.rowid AND di.is_public = 1 AND d.docs MATCH ?`
+		rows, err := GDB.Query(sqls, q)
+		if err != nil {
+			log.Println("public_search error:", err)
+			ErrorResponse(w, r)
+			return
+		}
+		defer rows.Close()
+
+		var res = make([]*PublicDoc, 0)
+		for rows.Next() {
+			var doc PublicDoc
+			err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username)
+			if err != nil {
+				continue
+			}
+			res = append(res, &doc)
+		}
+		SuccessResponse(w, r, res)
+	} else {
+		// 没有分词结果，使用模糊匹配
+		rows, err := GDB.Query(`
+			SELECT di.groupname, di.title, di.username
+			FROM docs_info di
+			WHERE di.is_public = 1 AND (di.title LIKE ? OR di.groupname LIKE ?)
+		`, "%"+query+"%", "%"+query+"%")
+		if err != nil {
+			ErrorResponse(w, r)
+			return
+		}
+		defer rows.Close()
+
+		var res = make([]*PublicDoc, 0)
+		for rows.Next() {
+			var doc PublicDoc
+			err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username)
+			if err != nil {
+				continue
+			}
+			res = append(res, &doc)
+		}
+		SuccessResponse(w, r, res)
+	}
+}
+
+// 获取公开文档内容
+func public_markdown(w http.ResponseWriter, r *http.Request) {
+	parts := GetPathList(r.URL.Path, "/wmapi/public-markdown/")
+	// log.Println("parts:", parts)
+	if len(parts) < 2 {
+		ErrorResponse(w, r)
+		return
+	}
+
+	var groupname = parts[0]
+	var filename = parts[1]
+
+	// 查询数据库获取用户名
+	var username string
+	var err error
+
+	if strings.HasSuffix(filename, ".md") {
+		// .md 文件需要验证文档是否公开
+		var title = strings.TrimSuffix(filename, ".md")
+		err = GDB.QueryRow(`SELECT username FROM docs_info WHERE groupname = ? AND title = ? AND is_public = 1`, groupname, title).Scan(&username)
+		if err != nil {
+			// 尝试用 username/groupname/title 格式
+			parts2 := strings.SplitN(groupname, "/", 2)
+			if len(parts2) == 2 {
+				var username2, groupname2 string
+				username2 = parts2[0]
+				groupname2 = parts2[1]
+				err = GDB.QueryRow(`SELECT username FROM docs_info WHERE username = ? AND groupname = ? AND title = ? AND is_public = 1`, username2, groupname2, title).Scan(&username)
+				if err == nil {
+					groupname = groupname2
+				}
+			}
+			if err != nil {
+				ErrorResponseWithMsg(w, r, "文档不存在或未公开")
+				return
+			}
+		}
+		// .md 文件路径
+		var fname = DATA_DIR + "/" + username + "/" + groupname + "/" + strings.TrimSuffix(filename, ".md") + ".md"
+		file, err := os.Open(fname)
+		if err != nil {
+			log.Println("open file error:", err)
+			ErrorResponseWithMsg(w, r, "文档读取失败")
+			return
+		}
+		defer file.Close()
+		content, err := io.ReadAll(file)
+		if err != nil {
+			ErrorResponse(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write(content)
+	} else {
+		// 图片或其他文件，需要验证该分组下是否有公开文档
+		err = GDB.QueryRow(`SELECT username FROM docs_info WHERE groupname = ? AND title = ? AND is_public = 1`, groupname, parts[1]).Scan(&username)
+		if err != nil || username == "" {
+			ErrorResponseWithMsg(w, r, "文件不存在或未公开")
+			return
+		}
+		// 文件路径
+		var fname = DATA_DIR + "/" + username + "/" + parts[0] + "/" + parts[1] + "/" + parts[2]
+		log.Println("public file path:", fname)
+		http.ServeFile(w, r, fname)
+	}
+}
+
+// 更新文档公开状态
+func update_public(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+
+	parts := GetPathList(r.URL.Path, "/wmapi/update-public/")
+	if len(parts) < 2 {
+		ErrorResponse(w, r)
+		return
+	}
+
+	var groupname = parts[0]
+	var markdownname = parts[1]
+
+	var req struct {
+		IsPublic int `json:"is_public"`
+	}
+	if err := ReadJson(r, &req); err != nil {
+		ErrorResponse(w, r)
+		return
+	}
+
+	_, err := GDB.Exec(`UPDATE docs_info SET is_public = ? WHERE username = ? AND groupname = ? AND title = ?`,
+		req.IsPublic, session.Name, groupname, markdownname)
+	if err != nil {
+		log.Println("update public error:", err)
+		ErrorResponse(w, r)
+		return
+	}
+
+	SuccessResponse(w, r, true)
+}
+
+// 获取文档公开状态
+func get_public_status(w http.ResponseWriter, r *http.Request) {
+	var suc, session = Auth(w, r)
+	if !suc {
+		return
+	}
+
+	parts := GetPathList(r.URL.Path, "/wmapi/get-public/")
+	if len(parts) < 2 {
+		ErrorResponse(w, r)
+		return
+	}
+
+	var groupname = parts[0]
+	var markdownname = parts[1]
+
+	var isPublic int
+	err := GDB.QueryRow(`SELECT is_public FROM docs_info WHERE username = ? AND groupname = ? AND title = ?`,
+		session.Name, groupname, markdownname).Scan(&isPublic)
+	if err != nil {
+		isPublic = 0
+	}
+
+	SuccessResponse(w, r, map[string]int{"is_public": isPublic})
 }
 
 func main() {
@@ -1341,6 +1578,12 @@ func main() {
 	http.HandleFunc("/wmapi/search-detail", search_detail)
 	// 刷新索引
 	http.HandleFunc("/wmapi/update-index", updateIndex)
+	// 公开文档相关
+	http.HandleFunc("/wmapi/public-list", public_list)
+	http.HandleFunc("/wmapi/public-search", public_search)
+	http.HandleFunc("/wmapi/public-markdown/", public_markdown)
+	http.HandleFunc("/wmapi/update-public/", update_public)
+	http.HandleFunc("/wmapi/get-public/", get_public_status)
 	server := http.Server{Addr: bind}
 	server.ListenAndServe()
 }

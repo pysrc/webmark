@@ -1,6 +1,6 @@
 import { h } from 'hastscript';
 import { useState, useEffect, useRef } from 'react';
-import { Layout, Input, Button, Space, Modal, Splitter, List, message, Popconfirm } from 'antd';
+import { Layout, Input, Button, Space, Modal, Splitter, List, message, Popconfirm, Switch } from 'antd';
 import {
     AppstoreAddOutlined,
     ExportOutlined,
@@ -304,6 +304,7 @@ const GroupMain = () => {
     const originalTextRef = useRef(''); // 保存文件原始内容
     const isModifiedRef = useRef(false); // 用 ref 追踪未保存的更改
     const [isModified, setIsModified] = useState(false); // 标记是否有未保存的更改
+    const [isPublic, setIsPublic] = useState(false); // 文档是否公开
 
     useEffect(() => {
         // 比较当前内容与原始内容，同时更新 textRef
@@ -470,6 +471,17 @@ const GroupMain = () => {
                     setShowEditor(true);
                     isModifiedRef.current = false;
                     setIsModified(false);
+                    // 获取文档公开状态
+                    fetch(`/wmapi/get-public/${groupname}/${mdname}`, {
+                        method: 'GET',
+                    })
+                        .then(res => res.json())
+                        .then(res => {
+                            if (res.ok) {
+                                setIsPublic(res.data.is_public === 1);
+                            }
+                        })
+                        .catch(() => {});
                 });
         };
 
@@ -682,6 +694,41 @@ const GroupMain = () => {
                                             <Content><h1>{isModified ? '* ' : ''}{mdname}</h1></Content>
                                             <Sider width="40%" style={{ backgroundColor: '#fff' }}>
                                                 <Space>
+                                                    <Switch
+                                                        checked={isPublic}
+                                                        onChange={(checked) => {
+                                                            fetch(`/wmapi/update-public/${groupname}/${mdname}`, {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'Content-Type': 'application/json'
+                                                                },
+                                                                body: JSON.stringify({ is_public: checked ? 1 : 0 })
+                                                            })
+                                                                .then(res => res.json())
+                                                                .then(d => {
+                                                                    if (d.ok) {
+                                                                        setIsPublic(checked);
+                                                                        messageApi.open({
+                                                                            type: 'success',
+                                                                            content: checked ? '已设为公开' : '已设为私有',
+                                                                        });
+                                                                    } else {
+                                                                        messageApi.open({
+                                                                            type: 'error',
+                                                                            content: d.msg || '设置失败',
+                                                                        });
+                                                                    }
+                                                                })
+                                                                .catch(() => {
+                                                                    messageApi.open({
+                                                                        type: 'error',
+                                                                        content: '设置失败',
+                                                                    });
+                                                                });
+                                                        }}
+                                                        checkedChildren="公开"
+                                                        unCheckedChildren="私有"
+                                                    />
                                                     <Button icon={<SaveOutlined />} type="primary" onClick={saveMarkdown}>保存</Button>
                                                     <Button icon={<FileZipOutlined />} onClick={() => {
                                                         setIsCryptoModalOpen(true);
