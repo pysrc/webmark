@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layout, Button, Space, message } from 'antd';
+import { Layout, Button, Space, message, FloatButton } from 'antd';
 import { Viewer } from '@bytemd/react';
 import 'bytemd/dist/index.css';
 import zhHans from 'bytemd/locales/zh_Hans.json';
@@ -82,6 +82,11 @@ const PublicDocViewer = ({ doc, onBack }) => {
             {contextHolder}
             <Layout style={{ minHeight: '100vh' }}>
                 <Header style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
                     background: '#fff',
                     padding: '0 24px',
                     borderBottom: '1px solid #f0f0f0',
@@ -99,7 +104,7 @@ const PublicDocViewer = ({ doc, onBack }) => {
                         </span>
                     </Space>
                 </Header>
-                <Content style={{ padding: '24px 50px', background: '#fff' }}>
+                <Content style={{ padding: '80px 50px 24px', background: '#fff' }}>
                     <div style={{
                         maxWidth: 900,
                         margin: '0 auto',
@@ -123,6 +128,7 @@ const PublicDocViewer = ({ doc, onBack }) => {
                         )}
                     </div>
                 </Content>
+                <FloatButton.BackTop visibilityHeight={100} />
             </Layout>
         </>
     );

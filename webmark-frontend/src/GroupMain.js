@@ -8,7 +8,8 @@ import {
     DeleteOutlined,
     SaveOutlined,
     HomeOutlined,
-    FileZipOutlined
+    FileZipOutlined,
+    EyeOutlined
 } from '@ant-design/icons';
 
 import { useSearchParams } from 'react-router-dom';
@@ -305,6 +306,7 @@ const GroupMain = () => {
     const isModifiedRef = useRef(false); // 用 ref 追踪未保存的更改
     const [isModified, setIsModified] = useState(false); // 标记是否有未保存的更改
     const [isPublic, setIsPublic] = useState(false); // 文档是否公开
+    const [viewCount, setViewCount] = useState(0); // 文档点击量
 
     useEffect(() => {
         // 比较当前内容与原始内容，同时更新 textRef
@@ -471,7 +473,7 @@ const GroupMain = () => {
                     setShowEditor(true);
                     isModifiedRef.current = false;
                     setIsModified(false);
-                    // 获取文档公开状态
+                    // 获取文档公开状态和点击量
                     fetch(`/wmapi/get-public/${groupname}/${mdname}`, {
                         method: 'GET',
                     })
@@ -479,6 +481,7 @@ const GroupMain = () => {
                         .then(res => {
                             if (res.ok) {
                                 setIsPublic(res.data.is_public === 1);
+                                setViewCount(res.data.view_count || 0);
                             }
                         })
                         .catch(() => {});
@@ -729,6 +732,11 @@ const GroupMain = () => {
                                                         checkedChildren="公开"
                                                         unCheckedChildren="私有"
                                                     />
+                                                    {isPublic && (
+                                                        <span style={{ color: '#888', fontSize: 14 }}>
+                                                            <EyeOutlined /> {viewCount}
+                                                        </span>
+                                                    )}
                                                     <Button icon={<SaveOutlined />} type="primary" onClick={saveMarkdown}>保存</Button>
                                                     <Button icon={<FileZipOutlined />} onClick={() => {
                                                         setIsCryptoModalOpen(true);

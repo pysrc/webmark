@@ -1262,6 +1262,13 @@ func createTable() error {
 		log.Println("migrate is_public column:", err)
 	}
 
+	// 迁移：检查并添加 view_count 字段（如果不存在）
+	_, err = GDB.Exec(`ALTER TABLE docs_info ADD COLUMN view_count INTEGER DEFAULT 0`)
+	if err != nil {
+		// 如果字段已存在，忽略错误
+		log.Println("migrate view_count column:", err)
+	}
+
 	_, err = GDB.Exec(`CREATE INDEX IF NOT EXISTS docs_username ON docs_info(username)`)
 
 	if err != nil {
@@ -1297,14 +1304,15 @@ func updateIndex(w http.ResponseWriter, r *http.Request) {
 
 // 公开文档列表
 type PublicDoc struct {
-	Groupname string `json:"groupname"`
-	Title     string `json:"title"`
-	Username  string `json:"username"`
+	Groupname  string `json:"groupname"`
+	Title      string `json:"title"`
+	Username   string `json:"username"`
+	ViewCount  int    `json:"view_count"`
 }
 
 // 获取公开文档列表
 func public_list(w http.ResponseWriter, r *http.Request) {
-	rows, err := GDB.Query(`select groupname, title, username from docs_info where is_public = 1`)
+	rows, err := GDB.Query(`select groupname, title, username, view_count from docs_info where is_public = 1 ORDER BY view_count DESC`)
 	if err != nil {
 		ErrorResponse(w, r)
 		return
@@ -1314,7 +1322,7 @@ func public_list(w http.ResponseWriter, r *http.Request) {
 	var res = make([]*PublicDoc, 0)
 	for rows.Next() {
 		var doc PublicDoc
-		err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username)
+		err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username, &doc.ViewCount)
 		if err != nil {
 			continue
 		}
@@ -1350,9 +1358,10 @@ func public_search(w http.ResponseWriter, r *http.Request) {
 	// 使用倒排索引搜索
 	if len(sps) > 0 {
 		q := strings.Join(sps, " AND ")
-		sqls := `SELECT di.groupname, di.title, di.username
+		sqls := `SELECT di.groupname, di.title, di.username, di.view_count
 			FROM docs d, docs_info di
-			WHERE di.doc_id = d.rowid AND di.is_public = 1 AND d.docs MATCH ?`
+			WHERE di.doc_id = d.rowid AND di.is_public = 1 AND d.docs MATCH ?
+			ORDER BY di.view_count DESC`
 		rows, err := GDB.Query(sqls, q)
 		if err != nil {
 			log.Println("public_search error:", err)
@@ -1364,7 +1373,7 @@ func public_search(w http.ResponseWriter, r *http.Request) {
 		var res = make([]*PublicDoc, 0)
 		for rows.Next() {
 			var doc PublicDoc
-			err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username)
+			err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username, &doc.ViewCount)
 			if err != nil {
 				continue
 			}
@@ -1374,9 +1383,10 @@ func public_search(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// 没有分词结果，使用模糊匹配
 		rows, err := GDB.Query(`
-			SELECT di.groupname, di.title, di.username
+			SELECT di.groupname, di.title, di.username, di.view_count
 			FROM docs_info di
 			WHERE di.is_public = 1 AND (di.title LIKE ? OR di.groupname LIKE ?)
+			ORDER BY di.view_count DESC
 		`, "%"+query+"%", "%"+query+"%")
 		if err != nil {
 			ErrorResponse(w, r)
@@ -1387,7 +1397,7 @@ func public_search(w http.ResponseWriter, r *http.Request) {
 		var res = make([]*PublicDoc, 0)
 		for rows.Next() {
 			var doc PublicDoc
-			err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username)
+			err := rows.Scan(&doc.Groupname, &doc.Title, &doc.Username, &doc.ViewCount)
 			if err != nil {
 				continue
 			}
@@ -1448,6 +1458,10 @@ func public_markdown(w http.ResponseWriter, r *http.Request) {
 			ErrorResponse(w, r)
 			return
 		}
+
+		// 增加点击量
+		GDB.Exec(`UPDATE docs_info SET view_count = view_count + 1 WHERE groupname = ? AND title = ? AND is_public = 1`, groupname, title)
+
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write(content)
 	} else {
@@ -1516,13 +1530,15 @@ func get_public_status(w http.ResponseWriter, r *http.Request) {
 	var markdownname = parts[1]
 
 	var isPublic int
-	err := GDB.QueryRow(`SELECT is_public FROM docs_info WHERE username = ? AND groupname = ? AND title = ?`,
-		session.Name, groupname, markdownname).Scan(&isPublic)
+	var viewCount int
+	err := GDB.QueryRow(`SELECT is_public, view_count FROM docs_info WHERE username = ? AND groupname = ? AND title = ?`,
+		session.Name, groupname, markdownname).Scan(&isPublic, &viewCount)
 	if err != nil {
 		isPublic = 0
+		viewCount = 0
 	}
 
-	SuccessResponse(w, r, map[string]int{"is_public": isPublic})
+	SuccessResponse(w, r, map[string]int{"is_public": isPublic, "view_count": viewCount})
 }
 
 func main() {

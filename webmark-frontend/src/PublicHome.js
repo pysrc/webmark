@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Layout, Input, Button, Card, Row, Col, Typography, Empty, Spin } from 'antd';
-import { SearchOutlined, FileTextOutlined, UserOutlined } from '@ant-design/icons';
+import { Layout, Input, Button, Card, Row, Col, Typography, Empty, Spin, FloatButton } from 'antd';
+import { SearchOutlined, FileTextOutlined, UserOutlined, EyeOutlined } from '@ant-design/icons';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -47,22 +47,22 @@ const PublicHome = ({ onViewDoc, onLogin }) => {
     };
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
             <Header style={{
-                background: '#fff',
+                background: '#f5f5f5',
                 padding: '0 24px',
-                borderBottom: '1px solid #f0f0f0',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
+                justifyContent: 'flex-end'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <FileTextOutlined style={{ fontSize: 24, marginRight: 8, color: '#1677ff' }} />
-                    <Title level={4} style={{ margin: 0 }}>Webmark</Title>
-                </div>
-                <Button type="primary" onClick={onLogin}>登录</Button>
+                <Button
+                    type="text"
+                    icon={<UserOutlined />}
+                    onClick={onLogin}
+                    title="登录"
+                />
             </Header>
-            <Content style={{ padding: '24px 50px', background: '#f5f5f5' }}>
+            <Content style={{ padding: '24px', background: '#f5f5f5' }}>
                 <div style={{
                     maxWidth: 900,
                     margin: '0 auto'
@@ -117,6 +117,10 @@ const PublicHome = ({ onViewDoc, onLogin }) => {
                                                         <Text type="secondary" style={{ fontSize: 12 }}>
                                                             <UserOutlined /> {doc.username} · {doc.groupname}
                                                         </Text>
+                                                        <br />
+                                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                                            <EyeOutlined /> {doc.view_count || 0}
+                                                        </Text>
                                                     </div>
                                                 }
                                             />
@@ -132,6 +136,7 @@ const PublicHome = ({ onViewDoc, onLogin }) => {
                         )}
                     </Spin>
                 </div>
+                <FloatButton.BackTop visibilityHeight={100} />
             </Content>
         </Layout>
     );
