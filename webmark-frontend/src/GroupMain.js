@@ -240,8 +240,19 @@ const GroupMain = () => {
         }),
         imagePrefix(groupname),
         uploadPlugin({
-            onUpload: (file) => new Promise((resolve, _) => {
+            onUpload: (file) => new Promise((resolve, reject) => {
                 if (!file) {
+                    reject('no file');
+                    return;
+                }
+                // 检查是否已打开文档
+                const currentMdname = nameRef.current;
+                if (!currentMdname) {
+                    messageApi.open({
+                        type: 'warning',
+                        content: '请先打开一个文档再上传文件',
+                    });
+                    reject('no document opened');
                     return;
                 }
                 // 创建FormData对象，用于将文件上传到服务器
@@ -262,18 +273,20 @@ const GroupMain = () => {
                 // 监听上传完成事件
                 xhr.addEventListener('load', (e) => {
                     console.log('上传完成');
-                    resolve(`${mdname}/${name}`);
+                    resolve(`${currentMdname}/${name}`);
                 });
                 // 监听上传出错事件
                 xhr.addEventListener('error', (e) => {
                     console.log('上传出错');
+                    reject('upload error');
                 });
                 // 监听上传取消事件
                 xhr.addEventListener('abort', (e) => {
                     console.log('上传取消');
+                    reject('upload aborted');
                 });
                 // 发送请求
-                xhr.open('POST', `/wmapi/upload/${groupname}/${mdname}`);
+                xhr.open('POST', `/wmapi/upload/${groupname}/${currentMdname}`);
                 xhr.send(formData);
             }),
         }),
@@ -370,6 +383,57 @@ const GroupMain = () => {
         document.addEventListener('click', handler);
         return () => document.removeEventListener('click', handler);
     }, [mdvalue]);
+
+    // 处理文件下载链接点击（强制下载而不是浏览器预览）
+    useEffect(() => {
+        const handler = (e) => {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+            // 只处理指向 /wmapi/markdown/ 的文件链接（非图片）
+            if (href && href.startsWith('/wmapi/markdown/') && !link.closest('img')) {
+                // 检查链接是否在图片标签内（图片的链接不处理）
+                const parentImg = link.querySelector('img');
+                if (parentImg) return; // 图片链接，让浏览器正常显示
+
+                // 阻止默认导航行为
+                e.preventDefault();
+                e.stopPropagation();
+
+                // 提取文件名
+                const filename = href.split('/').pop() || 'download';
+
+                // 使用 fetch 下载文件并触发真正的下载
+                fetch(href)
+                    .then(response => {
+                        if (!response.ok) throw new Error('下载失败');
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        // 创建 blob URL 并触发下载
+                        const blobUrl = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(blobUrl);
+                    })
+                    .catch(err => {
+                        console.error('下载失败:', err);
+                        messageApi.open({
+                            type: 'error',
+                            content: '文件下载失败',
+                        });
+                    });
+            }
+        };
+
+        document.addEventListener('click', handler);
+        return () => document.removeEventListener('click', handler);
+    }, [messageApi]);
 
     const fetchMarkdowns = () => {
 
