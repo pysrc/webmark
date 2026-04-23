@@ -71,7 +71,7 @@ const PublicDocViewer = ({ doc, onBack }) => {
                     setLoading(false);
                 });
         }
-    }, [doc]);
+    }, [doc, messageApi]);
 
     if (!doc) {
         return null;

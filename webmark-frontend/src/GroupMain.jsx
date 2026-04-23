@@ -335,7 +335,7 @@ const GroupMain = () => {
         } else {
             document.title = 'WebMark'; // 默认标题
         }
-    }, [mdname]);
+    }, [mdname, groupname]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -463,6 +463,7 @@ const GroupMain = () => {
             });
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(fetchMarkdowns, []);
 
     const saveMarkdown = () => {
@@ -564,13 +565,19 @@ const GroupMain = () => {
         }
     };
     const deleteConfirm = (e) => {
+        const deletedMdname = mdname;
         setMdName("");
-        fetch(`/wmapi/del-markdown/${groupname}/${mdname}`, {
+        // 重置修改状态，避免删除后切换文档时触发未保存提示
+        isModifiedRef.current = false;
+        setIsModified(false);
+        originalTextRef.current = "";
+        fetch(`/wmapi/del-markdown/${groupname}/${deletedMdname}`, {
             method: 'DELETE'
         })
             .then(response => response.text())
             .then(d => {
                 setMdValue("");
+                setShowEditor(false);
                 fetchMarkdowns();
             });
     };

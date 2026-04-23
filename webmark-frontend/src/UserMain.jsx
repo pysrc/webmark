@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layout, Input, Button, Flex, Space, Modal, message, Avatar } from 'antd';
+import { Layout, Input, Button, Space, Modal, message, Avatar } from 'antd';
 import {
     AppstoreAddOutlined,
     ExportOutlined,
@@ -80,6 +80,7 @@ const UserMain = () => {
             });
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(fetchGroup, []);
     const newGroup = () => {
         fetch('/wmapi/new-group', {

@@ -3,7 +3,7 @@ import { Layout, Input, Button, Card, Row, Col, Typography, Empty, Spin, FloatBu
 import { SearchOutlined, FileTextOutlined, UserOutlined, EyeOutlined } from '@ant-design/icons';
 
 const { Header, Content } = Layout;
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const PublicHome = ({ onViewDoc, onLogin }) => {
     const [keywords, setKeywords] = useState("");
