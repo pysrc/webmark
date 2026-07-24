@@ -280,9 +280,9 @@ const UserMain = () => {
                         <Button icon={<UserAddOutlined />} onClick={() => {
                             setIsNewUserModalOpen(true);
                         }}>新用户</Button>
-                        <Button icon={<CloudSyncOutlined />} onClick={() => {
+                        {Cookies.get('username') === 'root' && <Button icon={<CloudSyncOutlined />} onClick={() => {
                             updateIndex();
-                        }}>刷新索引</Button>
+                        }}>刷新索引</Button>}
                         <Button icon={<SettingOutlined />} onClick={() => {
                             setIsSettingModalOpen(true);
                         }}>设置</Button>

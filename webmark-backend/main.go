@@ -1298,6 +1298,10 @@ func updateIndex(w http.ResponseWriter, r *http.Request) {
 	if !suc {
 		return
 	}
+	if session.Name != "root" {
+		ErrorResponseWithMsg(w, r, "仅root用户可刷新索引")
+		return
+	}
 	go createIndex(session.Name)
 	SuccessResponse(w, r, true)
 }
